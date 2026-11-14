@@ -1,0 +1,176 @@
+# MODIS–VIIRS Harmonization — WORLD configuration (the default)
+# All paths are relative to the project root.
+# Other configurations extend this file and override only what differs:
+#   config/world_test_2019.yaml   the world for one year: first run, to measure time and disk
+#   config/iberia.yaml            a regional run (Iberian Peninsula + Occitanie)
+# Use one with:  MVH_CONFIG=config/world_test_2019.yaml python scripts/...   (or --config ...)
+
+project:
+  name: modis_viirs_harmonization
+  region: world            # raw files live in data/raw/<region>/<SOURCE>/
+
+aoi:
+  name: World
+  # countries = every Natural Earth country intersecting bbox_wgs84 (region = country,
+  #             super-region = UN sub-region)
+  # parts     = a hand-made list of sub-regions (regional run, see config/iberia.yaml)
+  mode: countries
+  # false: keep everything, region stays empty where no polygon claims the point (global run).
+  # true: detections outside every region are flagged out (regional study).
+  clip: false
+  # Points that fall just outside every polygon (coast lines, islets) take the nearest region
+  # within this distance in degrees. 0 = off.
+  snap_deg: 0.25
+  file: data/aoi/world_regions.gpkg   # one row per region, columns `name`, `parent`; built by 00_prepare_aoi.py
+  simplify_deg: 0.01
+  exclude: [Antarctica]
+  natural_earth_url: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_admin_0_countries.geojson
+  # W, S, E, N in WGS84: domain of the run and FIRMS request box.
+  bbox_wgs84: [-180.0, -60.0, 180.0, 84.0]
+  # Regional runs only: grid cells are built over the AOI buffered by this distance.
+  buffer_m: 5000
+
+period:
+  # VIIRS S-NPP active fire record starts 2012-01-19/20. 2025 = independent test year.
+  start: "2012-01-20"
+  end: "2025-12-31"
+  # MODIS-only backcast: Terra+Aqua detections before the VIIRS era, converted with the factors
+  # calibrated on overlap years. Does not affect VIIRS downloads, calibration or the baseline.
+  modis_start: "2003-01-01"
+
+calibration:
+  # Terra/Aqua orbits drift after the last inclination manoeuvres (~2020): calibrate on stable years,
+  # use 2020–2024 as drift test and 2025 as independent test (decision D-13 in docs/04_decision_log.md).
+  end: "2019-12-31"
+  drift_test: ["2020-01-01", "2024-12-31"]
+  independent_test: ["2025-01-01", "2025-12-31"]
+
+firms:
+  api_base: https://firms.modaps.eosdis.nasa.gov/api
+  mapkey_status_url: https://firms.modaps.eosdis.nasa.gov/mapserver/mapkey_status/
+  map_key_env: FIRMS_MAP_KEY
+  # Max days per area request (FIRMS currently allows 1..5; lower it if the API complains).
+  day_range: 5
+  pause_s: 0.7
+  max_retries: 5
+  # Split the request box into tiles of this many degrees (null = one request per chunk for the
+  # whole bbox). Needed for large domains: FIRMS weighs requests by area and row count.
+  # For the full record prefer the yearly archive files (docs/06_global_scale.md).
+  tile_deg: 30
+  # Standard (science-quality) products first. Each source is checked against the
+  # data_availability endpoint; unavailable sources are skipped and logged.
+  sources:
+    - {source: MODIS_SP,         sensor: MODIS, product: MCD14ML_C61}
+    - {source: VIIRS_SNPP_SP,    sensor: VIIRS, product: VNP14IMG,  platform: S-NPP}
+    - {source: VIIRS_NOAA20_SP,  sensor: VIIRS, product: VJ114IMG,  platform: NOAA-20}
+    - {source: VIIRS_NOAA21_SP,  sensor: VIIRS, product: VJ214IMG,  platform: NOAA-21}
+  # Used only if the SP version of a platform is missing for part of the period.
+  nrt_fallback:
+    VIIRS_NOAA21_SP: VIIRS_NOAA21_NRT
+
+crs:
+  # WGS 84 / NSIDC EASE-Grid 2.0 Global (cylindrical equal-area). Cells are counted from the
+  # projection origin, so 1 km / 5 km ids are globally unique and nest exactly (25 per 5 km cell).
+  equal_area: "EPSG:6933"
+
+grid:
+  sizes_m: [1000, 5000]
+  # Polygon layers written to disk (regional runs). Empty for the world: cells come from the ids
+  # of non-empty cells; a global 5 km layer would hold ~20 M polygons.
+  materialize_m: []
+  # Processing tile = block of tile_cells × tile_cells cells of the factor scale (400 × 5 km =
+  # 2000 km). Every stage works tile by tile; lower it if the busiest tile does not fit in memory.
+  tile_cells: 400
+
+run:
+  jobs: 4                 # worker processes for the per-tile stages (--jobs overrides)
+  chunk_rows: 1000000     # rows per chunk when reading raw CSV files
+
+qc:
+  # MODIS C6.1 confidence classes (MODIS Collection 6 Active Fire User Guide)
+  modis_conf_classes: {low: [0, 29], nominal: [30, 79], high: [80, 100]}
+  # FIRMS "type" field (SP products): 0 vegetation fire, 1 volcano, 2 other static land source, 3 offshore
+  keep_types: [0]
+  scenarios:
+    Q1: {modis_min_conf: 30, viirs_conf: [n, h], description: "nominal + high (main)"}
+    Q2: {modis_min_conf: 80, viirs_conf: [h],    description: "high only (strict)"}
+    Q3: {modis_min_conf: 0,  viirs_conf: [l, n, h], description: "all (sensitivity)"}
+  main_scenario: Q1
+  # Scenarios aggregated to daily cell counts: "all" (sensitivity analysis) or a list, e.g. [Q1].
+  aggregate_scenarios: [Q1]
+
+temporal:
+  # Detections of one platform separated by more than this gap belong to different overpasses.
+  overpass_gap_min: 20
+  # Cross-sensor overpass matching tolerances (minutes); 5 is the literature baseline (Aqua–S-NPP).
+  match_tolerance_min: [5, 10, 20]
+  # Platform pairs evaluated for near-simultaneous observation
+  match_pairs:
+    - [Aqua, S-NPP]
+    - [Aqua, NOAA-20]
+    - [Aqua, NOAA-21]
+    - [Terra, S-NPP]
+
+availability:
+  # Known outages (platform,start,end) are always applied. Automatic detection compares each
+  # platform's domain-wide daily count with its usual level; it needs a domain where every
+  # platform sees fire every day: on for the world, off in a regional configuration.
+  outages_file: data/ancillary/outages.csv
+  detect_outages: true
+  window_days: 61
+  drop_fraction: 0.1            # a day below 10 % of the usual level is an outage
+  min_daily_detections: 200     # platforms with a lower usual level are not screened
+
+harmonization:
+  reference_platform: S-NPP     # VIIRS-equivalent target (single platform = consistent series)
+  # Stand-ins for the reference, in priority order. On a day without S-NPP the first predictor
+  # whose platforms all work is used, multiplied by its factor; sources are never summed.
+  # calibration: [start, end] of the days a predictor is calibrated on (null = from its first day).
+  # max_level: deepest hierarchy level it may use (all | super | region | cell | cell_month).
+  predictors:
+    - {name: noaa-20,    platforms: [NOAA-20],     sensor: VIIRS, calibration: [null, "2024-12-31"], max_level: region}
+    - {name: noaa-21,    platforms: [NOAA-21],     sensor: VIIRS, calibration: [null, "2024-12-31"], max_level: region}
+    - {name: terra+aqua, platforms: [Terra, Aqua], sensor: MODIS}   # MODIS: calibration.end below
+    - {name: terra,      platforms: [Terra],       sensor: MODIS}
+    - {name: aqua,       platforms: [Aqua],        sensor: MODIS}
+  # split  = separate day and night factors (VIIRS is relatively more sensitive at night)
+  # pooled = one factor for both. Both are always validated side by side in the report.
+  daynight: split
+  factor_scale_m: 5000          # factors fitted on 5 km cells; 1 km cells inherit their parent's factor
+  fine_scale: false             # also write the harmonized daily series on the finest (1 km) grid: large for the world
+  shrinkage_K: 50               # predictor detections at which a level trusts itself 50 %
+  train_fraction: 0.7           # chronological split inside each calibration window
+  n_bootstrap: 500
+  baseline_years: [2012, 2024]  # climatology for the calendar / anomalies (2025 = test year)
+  # Operational periods of the SP products (FIRMS data_availability, checked 2026-11-14;
+  # Terra/Aqua start = mission start of MCD14ML). null = still running.
+  operational:
+    Terra: ["2000-11-01", null]
+    Aqua: ["2002-07-04", null]
+    S-NPP: ["2012-01-20", null]
+    NOAA-20: ["2018-04-01", null]
+    NOAA-21: ["2023-03-01", null]
+
+web:
+  # One dataset per entry under web/public/data/<id>/, listed in datasets.json.
+  # overview: coarse cells over the whole domain. details: 5 km cells + single detections inside
+  # a bbox [W, S, E, N]; add one entry per area to explore closely.
+  overview: {id: world, name: "World", cell_m: 50000, region_level: super}
+  details:
+    - {id: iberia, name: "Iberian Peninsula", bbox: [-10.0, 35.8, 4.5, 44.0]}
+    - {id: california, name: "California", bbox: [-125.0, 32.0, -113.5, 42.5]}
+    - {id: central_africa, name: "Central Africa (Congo basin south)", bbox: [12.0, -14.0, 32.0, -2.0]}
+    - {id: se_australia, name: "South-east Australia", bbox: [140.0, -39.5, 154.0, -28.0]}
+  max_points_per_year: 400000   # detections kept per dataset and year (highest FRP first)
+  max_cells: 80000              # warn above this many cells in one dataset
+
+paths:
+  raw: data/raw
+  aoi: data/aoi
+  processed: data/processed
+  grids: data/grids
+  aggregated: data/aggregated
+  harmonized: data/harmonized
+  reports: outputs/reports
+  figures: outputs/figures
+  csv: outputs/csv

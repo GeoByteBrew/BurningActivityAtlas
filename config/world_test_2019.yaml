@@ -1,0 +1,38 @@
+# The world for one year (2019): the first run to do.
+# 2019 is the last year of the MODIS calibration period and has MODIS, S-NPP and NOAA-20
+# (NOAA-21 starts in 2023 and is skipped automatically). It exercises every stage on real global
+# data in a fraction of the time and disk of the full record.
+#
+# What it can show: that the pipeline runs on the world, world factors by sub-region and by
+# day/night, outage screening, held-out validation inside 2019 (factors fitted on the first
+# months, scored on the last ones), the web overview.
+# What it cannot show: drift after 2019, the independent year, anomalies (there is no multi-year
+# baseline: "normal" is 2019 itself).
+#
+#     export MVH_CONFIG=config/world_test_2019.yaml
+extends: config.yaml
+
+project:
+  region: world_2019           # raw files in data/raw/world_2019/<SOURCE>/
+
+period:
+  start: "2019-01-01"
+  end: "2019-12-31"
+  modis_start: "2019-01-01"
+
+calibration:
+  end: "2019-12-31"
+  drift_test: ["2019-01-01", "2019-12-31"]
+  independent_test: ["2019-01-01", "2019-12-31"]
+
+harmonization:
+  baseline_years: [2019, 2019]
+
+paths:
+  processed: data/world_2019/processed
+  grids: data/world_2019/grids
+  aggregated: data/world_2019/aggregated
+  harmonized: data/world_2019/harmonized
+  reports: outputs/world_2019/reports
+  figures: outputs/world_2019/figures
+  csv: outputs/world_2019/csv

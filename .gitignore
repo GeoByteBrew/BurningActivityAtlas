@@ -1,0 +1,19 @@
+.venv/
+.env
+__pycache__/
+.pytest_cache/
+*.pyc
+.DS_Store
+
+# Raw and intermediate data (published as a release archive, not in git)
+data/raw/
+data/**/processed/
+data/**/aggregated/
+data/**/grids/
+# harmonized: keep the small root files (factors_*.csv, availability.csv, outages_used.csv,
+# monthly_region.parquet), ignore the per-tile folders
+data/**/harmonized/*/
+data/aoi/world_regions.gpkg
+
+web/node_modules/
+web/dist/
