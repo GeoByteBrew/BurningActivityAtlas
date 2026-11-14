@@ -69,8 +69,9 @@ def compact(cfg, key) -> pd.DataFrame:
     if part.exists():
         frames.insert(0, pd.read_parquet(part, columns=keep))
     df = pd.concat(frames, ignore_index=True)
+    del frames
     reg = region_index(cfg)
-    df = qc.add_qc_flags(df, cfg, aoi_region=reg.lookup, clip=cfg["aoi"].get("clip", True))
+    df = qc.add_qc_flags(df, cfg, aoi_region=reg.lookup, clip=cfg["aoi"].get("clip", True), inplace=True)
     df["region"] = df["region"].astype("category")
     tmp = part.with_suffix(".tmp")
     df.to_parquet(tmp, index=False)

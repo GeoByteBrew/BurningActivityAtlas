@@ -104,18 +104,22 @@ def standardize(raw: pd.DataFrame, src: dict, qc_cfg: dict) -> pd.DataFrame:
     return df[STD_COLUMNS]
 
 
-def add_qc_flags(df: pd.DataFrame, cfg: dict, aoi_contains=None, aoi_region=None, clip: bool = True) -> pd.DataFrame:
+def add_qc_flags(df: pd.DataFrame, cfg: dict, aoi_contains=None, aoi_region=None, clip: bool = True,
+                 inplace: bool = False) -> pd.DataFrame:
     """Add boolean QC flags and per-scenario membership columns (q_Q1, q_Q2, ...).
 
     aoi_region: optional fn(lon, lat) -> region name or None; sets `region`.
     clip: True (regional run) keeps only detections inside a region; False (global run) keeps
     everything and leaves `region` empty for the few points no polygon claims.
+    inplace: add the columns to `df` itself; a busy world partition holds millions of rows and a
+    copy doubles its memory.
     """
     qc = cfg["qc"]
     start = pd.Timestamp(record_start(cfg), tz="UTC")
     end = pd.Timestamp(cfg["period"]["end"], tz="UTC") + pd.Timedelta(days=1)
 
-    df = df.copy()
+    if not inplace:
+        df = df.copy()
     df["f_coord_ok"] = df["latitude"].between(-90, 90) & df["longitude"].between(-180, 180)
     grid_cols = [c for c in df.columns if c.startswith("cell_")]
     df["f_grid_ok"] = (df[grid_cols] >= 0).all(axis=1) if grid_cols else True
