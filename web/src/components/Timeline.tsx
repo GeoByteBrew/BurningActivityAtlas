@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { fullRange, isFull, MONTHS, monthRange, rangeLabel, yearOf, yearRange } from "../data";
 import type { Meta, Range } from "../types";
 
@@ -35,6 +36,15 @@ export default function Timeline({
           ? { cls: "ph-drift", tip: "VIIRS observed · drift check of the MODIS factors (not used for calibration)" }
           : { cls: "ph-test", tip: "VIIRS observed · independent test year" };
 
+  // on narrow screens the year strip scrolls: keep the selected year in view
+  const yearsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const box = yearsRef.current;
+    const on = box?.querySelector<HTMLElement>(".chip.on");
+    if (!box || !on || box.scrollWidth <= box.clientWidth) return;
+    box.scrollTo({ left: on.offsetLeft - box.offsetLeft - (box.clientWidth - on.offsetWidth) / 2, behavior: "smooth" });
+  }, [range.start, range.end]);
+
   const extend = (r: Range) =>
     setRange({ start: Math.min(range.start, r.start), end: Math.max(range.end, r.end) });
 
@@ -71,7 +81,7 @@ export default function Timeline({
       <button className={`chip all ${full ? "on" : ""}`} onClick={() => setRange(fullRange(meta))}>
         All
       </button>
-      <div className="years">
+      <div className="years" ref={yearsRef}>
         {meta.years.map((y) => {
           const on = !full && y >= y0 && y <= y1;
           const ph = phase(y);

@@ -62,9 +62,15 @@ export default function DownloadMenu({ data, region, range, sensor, values, medi
 
   useEffect(() => {
     if (!open) return;
-    const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
-    window.addEventListener("mousedown", close);
-    return () => window.removeEventListener("mousedown", close);
+    // pointerdown also fires for taps on the globe, where Cesium suppresses the emulated mousedown
+    const close = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", esc);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("keydown", esc);
+    };
   }, [open]);
 
   const run = (name: string, fn: () => Promise<void> | void) => async () => {
@@ -187,7 +193,7 @@ export default function DownloadMenu({ data, region, range, sensor, values, medi
         <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden>
           <path d="M12 3v12m0 0l-5-5m5 5l5-5M4 19h16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-        Download
+        <span className="btn-label">Download</span>
       </button>
       {open && (
         <div className="dl-menu glass">

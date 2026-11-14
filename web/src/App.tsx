@@ -25,8 +25,11 @@ import {
   yearRange,
 } from "./data";
 import type { Basemap, ColorMode, Dataset, DatasetEntry, Layer, Meta, PickedPoint, Points, PointSet, Range, Sensor } from "./types";
+import { useMobile } from "./useMobile";
 
 const SEEN_KEY = "baa-about-seen";
+/** Phone layout: which panel the bottom sheet shows (null = map only). */
+type Sheet = "controls" | "insights" | null;
 const STORY = { region: "Portugal", year: 2025, month: 7 };
 
 /** Move a range by whole years (or by one month when a single month is selected), wrapping around. */
@@ -61,7 +64,19 @@ export default function App() {
   const [datasets, setDatasets] = useState<DatasetEntry[]>([]);
   const [datasetId, setDatasetId] = useState<string | null>(null);
   const [switching, setSwitching] = useState(false);
+  const mobile = useMobile();
+  const [sheet, setSheet] = useState<Sheet>(null);
+  const [sheetFull, setSheetFull] = useState(true);
   const viewer = useRef<Viewer | null>(null);
+
+  // on a phone, tapping a cell or a detection opens its details in a half-height sheet,
+  // so the tapped spot stays visible above it
+  useEffect(() => {
+    if (mobile && (cell !== null || point)) {
+      setSheet("insights");
+      setSheetFull(false);
+    }
+  }, [mobile, cell, point]);
 
   useEffect(() => {
     loadIndex()
@@ -227,6 +242,12 @@ export default function App() {
     setLayer("grid");
     setRegion(STORY.region);
     setRange(monthRange(meta, STORY.year, STORY.month));
+    if (mobile) setSheet(null);
+  };
+  const toggleSheet = (s: Exclude<Sheet, null>) => {
+    if (sheet === s && !sheetFull) return setSheetFull(true);
+    setSheet(sheet === s ? null : s);
+    setSheetFull(true);
   };
 
   if (error)
@@ -251,7 +272,7 @@ export default function App() {
     );
 
   return (
-    <div className="app">
+    <div className={mobile ? `app mobile sheet-${sheet ?? "closed"}${sheet && !sheetFull ? " sheet-peek" : ""}` : "app"}>
       <Globe
         data={data}
         sensor={sensor}
@@ -264,6 +285,7 @@ export default function App() {
         medians={medians}
         points={points}
         selectedCell={layer === "grid" ? cell : null}
+        centerOnSelect={mobile}
         onSelectCell={setCell}
         onSelectPoint={setPoint}
         onHover={setHover}
@@ -307,7 +329,11 @@ export default function App() {
         setBasemap={setBasemap}
       />
 
-      <aside className="panel right glass">
+      {/* keyed by content so a new cell or detection starts at the top of the panel */}
+      <aside className="panel right glass" key={point ? "pt" : cell !== null ? `cell-${cell}` : "insights"}>
+        {mobile && (
+          <button className="sheet-grip" onClick={() => setSheetFull((f) => !f)} aria-label={sheetFull ? "Shrink panel" : "Expand panel"} />
+        )}
         {point && layer === "points" ? (
           <PointDetail p={point} onClose={() => setPoint(null)} />
         ) : cell !== null && layer === "grid" ? (
@@ -330,7 +356,31 @@ export default function App() {
 
       <Timeline meta={meta} range={range} playing={playing} setRange={setRange} togglePlay={() => setPlaying((p) => !p)} />
 
-      {hover && (
+      {mobile && (
+        <nav className="m-tabs glass" aria-label="Panels">
+          <button className={sheet === null ? "on" : ""} onClick={() => setSheet(null)}>
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
+              <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2" />
+              <path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" fill="none" stroke="currentColor" strokeWidth="1.6" />
+            </svg>
+            Map
+          </button>
+          <button className={sheet === "controls" ? "on" : ""} onClick={() => toggleSheet("controls")}>
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
+              <path d="M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+            </svg>
+            Layers
+          </button>
+          <button className={sheet === "insights" ? "on" : ""} onClick={() => toggleSheet("insights")}>
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
+              <path d="M4 20V10m6 10V4m6 16v-7m4 7H2" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+            </svg>
+            {cell !== null || point ? "Details" : "Insights"}
+          </button>
+        </nav>
+      )}
+
+      {hover && !mobile && (
         <div className="hover-tip" style={{ left: hover.x + 14, top: hover.y + 14 }}>
           <span>{hover.title}</span>
           <b>{hover.value}</b>

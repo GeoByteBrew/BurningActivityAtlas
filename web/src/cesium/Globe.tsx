@@ -48,6 +48,8 @@ interface Props {
   medians: Float64Array;
   points: PointSet | null;
   selectedCell: number | null;
+  /** phone layout: fly to a selected cell so it ends up above the bottom sheet */
+  centerOnSelect?: boolean;
   onSelectCell: (i: number | null) => void;
   onSelectPoint: (p: PickedPoint | null) => void;
   onHover: (h: Hover | null) => void;
@@ -139,7 +141,8 @@ export default function Globe(props: Props) {
       fullscreenButton: false,
       infoBox: false,
       selectionIndicator: false,
-      msaaSamples: 4,
+      // 4× MSAA costs too much fill rate on phone GPUs
+      msaaSamples: window.matchMedia("(pointer: coarse)").matches ? 1 : 4,
       contextOptions: { webgl: { preserveDrawingBuffer: true } },
     });
     const scene = viewer.scene;
@@ -364,6 +367,26 @@ export default function Globe(props: Props) {
       removeOld();
     };
   }, [data, sensor, colorMode, values, medians, region, layer]);
+
+  // ---- phone: bring the selected cell into the upper, uncovered part of the screen
+  useEffect(() => {
+    const v = viewerRef.current;
+    if (!v || selectedCell === null || !props.centerOnSelect) return;
+    const c = data.cells;
+    const lon = (c.w[selectedCell] + c.e[selectedCell]) / 2;
+    const lat = (c.n[selectedCell] + c.s[selectedCell]) / 2;
+    const cam = v.camera;
+    const range = Math.min(Math.max(Cartesian3.distance(cam.positionWC, Cartesian3.fromDegrees(lon, lat)), 60e3), 900e3);
+    // aim at a point behind the cell (along the view heading): the cell then sits above the screen centre
+    const back = (range * 0.3) / 111_000;
+    const aimLat = lat - Math.cos(cam.heading) * back;
+    const aimLon = lon - (Math.sin(cam.heading) * back) / Math.cos(CesiumMath.toRadians(lat));
+    cam.flyToBoundingSphere(new BoundingSphere(Cartesian3.fromDegrees(aimLon, aimLat), 1), {
+      offset: new HeadingPitchRange(cam.heading, Math.min(cam.pitch, CesiumMath.toRadians(-35)), range),
+      duration: 0.8,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCell]);
 
   // ---- selected cell highlight
   useEffect(() => {

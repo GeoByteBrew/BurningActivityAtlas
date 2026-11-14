@@ -1336,23 +1336,277 @@ kbd {
   }
 }
 
-@media (max-width: 900px) {
-  .panel.left,
-  .legend {
-    display: none;
+/* ---------- phones and small tablets (keep in sync with MOBILE_QUERY in useMobile.ts) ---------- */
+@supports (height: 100dvh) {
+  html,
+  body,
+  #root {
+    height: 100dvh;
   }
-  .panel.right {
-    left: var(--gap);
-    width: auto;
-    top: auto;
-    height: 42vh;
+}
+
+@media (max-width: 900px) {
+  :root {
+    --gap: 8px;
+    --top-h: 50px;
+    --tabs-h: 54px;
+    --safe-b: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* header: title + icon buttons; above the sheet so its menus are never covered */
+  .topbar {
+    padding: 0 6px 0 10px;
+    gap: 8px;
+    z-index: 8;
+  }
+  .brand {
+    gap: 8px;
+    min-width: 0;
+  }
+  .brand > div {
+    min-width: 0;
+  }
+  .brand h1 {
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .brand p,
-  .pill {
+  .pill,
+  .kbd-hint,
+  .btn-label {
     display: none;
   }
-  .steps {
+  .topbar-right {
+    gap: 4px;
+    flex: none;
+  }
+  .topbar-right .btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+  }
+  .dataset-pick {
+    padding: 0 2px;
+  }
+  .dataset-pick span {
+    display: none;
+  }
+  .dataset-pick select {
+    max-width: 104px;
+    height: 30px;
+  }
+  .dl-menu {
+    position: fixed;
+    top: calc(var(--top-h) + var(--gap) * 2);
+    left: var(--gap);
+    right: var(--gap);
+    width: auto;
+  }
+
+  /* bottom tab bar */
+  .m-tabs {
+    position: absolute;
+    left: var(--gap);
+    right: var(--gap);
+    bottom: calc(var(--gap) + var(--safe-b));
+    height: var(--tabs-h);
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    padding: 4px;
+    z-index: 7;
+  }
+  .m-tabs button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .m-tabs button.on {
+    background: rgba(255, 122, 47, 0.16);
+    color: #fff;
+  }
+
+  /* timeline: two rows (years, months) above the tab bar; hidden while a sheet is open */
+  .timeline {
+    bottom: calc(var(--tabs-h) + var(--gap) * 2 + var(--safe-b));
+    height: auto;
+    flex-wrap: wrap;
+    row-gap: 4px;
+    padding: 6px;
+  }
+  .range-label {
+    min-width: 0;
+    padding: 0 2px;
+  }
+  .range-label span,
+  .phase-key {
+    display: none;
+  }
+  .range-label b {
+    font-size: 12px;
+  }
+  .years {
+    flex: 1 1 0;
+    min-width: 0;
+    scroll-snap-type: x proximity;
+  }
+  .years .chip {
+    flex: none;
+    min-width: 40px;
+    scroll-snap-align: start;
+  }
+  .months {
+    display: flex;
+    flex: 1 1 100%;
+    order: 10;
+    gap: 2px;
+    padding-left: 0;
+    border-left: 0;
+  }
+  .chip.month {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    height: 28px;
+  }
+  .app.mobile:not(.sheet-closed) .timeline {
+    display: none;
+  }
+
+  /* side panels become one bottom sheet */
+  .app.mobile .panel.left,
+  .app.mobile .panel.right {
+    left: var(--gap);
+    right: var(--gap);
+    width: auto;
+    top: auto;
+    bottom: calc(var(--tabs-h) + var(--gap) * 2 + var(--safe-b));
+    height: min(62dvh, calc(100% - var(--top-h) - var(--tabs-h) - var(--gap) * 5 - var(--safe-b)));
+    z-index: 6;
+    overscroll-behavior: contain;
+  }
+  .app.mobile:not(.sheet-controls) .panel.left,
+  .app.mobile:not(.sheet-insights) .panel.right {
+    display: none;
+  }
+  .app.mobile.sheet-peek .panel.right {
+    height: 40dvh;
+  }
+  .sheet-grip {
+    position: sticky;
+    top: -6px;
+    z-index: 2;
+    display: block;
+    width: calc(100% + 32px);
+    height: 22px;
+    margin: -6px -16px 0;
+    border: 0;
+    background: var(--glass-strong);
+  }
+  .sheet-grip::before {
+    content: "";
+    display: block;
+    width: 40px;
+    height: 4px;
+    margin: 0 auto;
+    border-radius: 2px;
+    background: var(--line-strong);
+  }
+
+  /* panel headings with chips next to them wrap instead of squeezing */
+  .sec-head {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .cov-row {
+    grid-template-columns: 62px 1fr 42px;
+  }
+  .cov-name {
+    white-space: nowrap;
+  }
+
+  /* wide method charts scroll sideways at a readable size */
+  .modal.method .chart {
+    overflow-x: auto;
+  }
+  .modal.method .chart svg {
+    min-width: 560px;
+  }
+  .legend-scale {
+    font-size: 11px;
+  }
+
+  /* bigger touch targets */
+  .seg button {
+    height: 38px;
+  }
+  .region-list button {
+    min-height: 40px;
+  }
+  .chip {
+    height: 34px;
+  }
+
+  /* legend: compact, top left; hidden behind an open sheet */
+  .legend {
+    left: var(--gap);
+    top: calc(var(--top-h) + var(--gap) * 2);
+    bottom: auto;
+    width: 176px;
+    padding: 8px 10px;
+  }
+  .legend-sub {
+    display: none;
+  }
+  .app.mobile:not(.sheet-closed) .legend {
+    display: none;
+  }
+
+  /* imagery credits: top right, out of the way of the controls */
+  .globe .cesium-viewer-bottom {
+    left: auto !important;
+    right: var(--gap) !important;
+    top: calc(var(--top-h) + var(--gap) * 2) !important;
+    bottom: auto !important;
+    max-width: 45%;
+  }
+
+  /* modals fill the screen */
+  .modal-backdrop {
+    padding: 0;
+    place-items: stretch;
+  }
+  .modal {
+    width: 100%;
+    max-height: none;
+    height: 100%;
+    border-radius: 0;
+    padding: 18px 16px calc(20px + var(--safe-b));
+  }
+  .modal.method {
+    width: 100%;
+  }
+  .modal-hero {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .steps,
+  .kpis.four {
     grid-template-columns: 1fr 1fr;
+  }
+  .modal.method .tbl {
+    display: block;
+    overflow-x: auto;
   }
 }
 

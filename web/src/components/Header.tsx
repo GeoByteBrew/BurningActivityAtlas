@@ -84,7 +84,7 @@ export default function Header({
             <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden>
               <path d="M7 4.5v15l12-7.5z" fill="currentColor" />
             </svg>
-            Story: {storyLabel}
+            <span className="btn-label">Story: {storyLabel}</span>
           </button>
         )}
         {children}
@@ -93,7 +93,7 @@ export default function Header({
             <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden>
               <path d="M4 20V10m6 10V4m6 16v-7m4 7H2" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
             </svg>
-            Method
+            <span className="btn-label">Method</span>
           </button>
         )}
         <button className="btn ghost" onClick={onAbout}>
@@ -101,7 +101,7 @@ export default function Header({
             <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
             <path d="M12 11v6M12 7.5v.01" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
           </svg>
-          How it works
+          <span className="btn-label">How it works</span>
         </button>
       </div>
     </header>
