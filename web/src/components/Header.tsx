@@ -23,6 +23,8 @@ export default function Header({
   onMethod,
   onStory,
   storyLabel,
+  onArea,
+  areaOn,
   datasets,
   datasetId,
   onDataset,
@@ -36,6 +38,8 @@ export default function Header({
   onMethod: () => void;
   onStory?: () => void;
   storyLabel: string;
+  onArea?: () => void;
+  areaOn?: boolean;
   children?: ReactNode;
 }) {
   const [y0, y1] = [meta.years[0], meta.years.at(-1)];
@@ -85,6 +89,17 @@ export default function Header({
               <path d="M7 4.5v15l12-7.5z" fill="currentColor" />
             </svg>
             <span className="btn-label">Story: {storyLabel}</span>
+          </button>
+        )}
+        {onArea && (
+          <button className={`btn ghost ${areaOn ? "on" : ""}`} onClick={onArea} title="Upload or draw a boundary and get its fire record">
+            <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden>
+              <path d="M5 6l7-3 7 4-1 10-8 4-6-6z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+              <circle cx="5" cy="6" r="1.6" fill="currentColor" />
+              <circle cx="19" cy="7" r="1.6" fill="currentColor" />
+              <circle cx="10" cy="21" r="1.6" fill="currentColor" />
+            </svg>
+            <span className="btn-label">Your area</span>
           </button>
         )}
         {children}

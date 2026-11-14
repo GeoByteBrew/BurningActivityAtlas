@@ -4,6 +4,7 @@ import {
   BoundingSphere,
   Cartesian2,
   Cartesian3,
+  Cartographic,
   Color,
   ColorGeometryInstanceAttribute,
   Credit,
@@ -26,6 +27,7 @@ import {
 import { cellRatio, fmt, fmtRatio, inRange } from "../data";
 import { anomalyRgb, divergeRgb, fireRgb, logNorm, SENSOR_COLORS } from "../colors";
 import type { Basemap, ColorMode, Dataset, Layer, PickedPoint, PointSet, Range, Sensor } from "../types";
+import { polyBbox, type Poly } from "../aoi";
 
 export interface Hover {
   x: number;
@@ -50,6 +52,11 @@ interface Props {
   selectedCell: number | null;
   /** phone layout: fly to a selected cell so it ends up above the bottom sheet */
   centerOnSelect?: boolean;
+  /** "Analyze your area": the user's polygon, the vertices being drawn, and the drawing mode */
+  area?: Poly | null;
+  draft?: number[][];
+  drawMode?: boolean;
+  onDrawPoint?: (lonLat: [number, number]) => void;
   onSelectCell: (i: number | null) => void;
   onSelectPoint: (p: PickedPoint | null) => void;
   onHover: (h: Hover | null) => void;
@@ -124,6 +131,7 @@ export default function Globe(props: Props) {
   const heightsRef = useRef<Float64Array>(new Float64Array(0));
   const highlightRef = useRef<Entity | null>(null);
   const aoiRef = useRef<CustomDataSource | null>(null);
+  const areaRef = useRef<CustomDataSource | null>(null);
   const cb = useRef(props);
   cb.current = props;
 
@@ -157,6 +165,9 @@ export default function Globe(props: Props) {
     const aoi = new CustomDataSource("aoi");
     viewer.dataSources.add(aoi);
     aoiRef.current = aoi;
+    const userArea = new CustomDataSource("user-area");
+    viewer.dataSources.add(userArea);
+    areaRef.current = userArea;
 
     const pts = scene.primitives.add(new PointPrimitiveCollection()) as PointPrimitiveCollection;
     pointsRef.current = pts;
@@ -169,8 +180,16 @@ export default function Globe(props: Props) {
       return id && typeof id.i === "number" ? id : null;
     };
     handler.setInputAction((e: { position: Cartesian2 }) => {
-      const id = describe(scene.pick(e.position));
       const p = cb.current;
+      if (p.drawMode) {
+        const pos = viewer.camera.pickEllipsoid(e.position, scene.globe.ellipsoid);
+        if (pos) {
+          const c = Cartographic.fromCartesian(pos);
+          p.onDrawPoint?.([CesiumMath.toDegrees(c.longitude), CesiumMath.toDegrees(c.latitude)]);
+        }
+        return;
+      }
+      const id = describe(scene.pick(e.position));
       if (id?.kind === "cell") {
         p.onSelectCell(id.i!);
         p.onSelectPoint(null);
@@ -198,7 +217,7 @@ export default function Globe(props: Props) {
       raf = requestAnimationFrame(() => {
         const id = describe(scene.pick(e.endPosition));
         const p = cb.current;
-        scene.canvas.style.cursor = id ? "pointer" : "";
+        scene.canvas.style.cursor = p.drawMode ? "crosshair" : id ? "pointer" : "";
         if (id?.kind === "cell") {
           const c = p.data.cells;
           const v = p.values[id.i!];
@@ -272,6 +291,54 @@ export default function Globe(props: Props) {
       }
     }
   }, [data, region]);
+
+  // ---- user area (analyze your area): finished polygon + vertices being drawn
+  const { area, draft, drawMode } = props;
+  useEffect(() => {
+    const v = viewerRef.current;
+    const ds = areaRef.current;
+    if (!v || !ds) return;
+    ds.entities.removeAll();
+    v.scene.canvas.style.cursor = drawMode ? "crosshair" : "";
+    const accent = Color.fromCssColorString("#38d0ff");
+    for (const rings of area ?? []) {
+      for (const ring of rings) {
+        ds.entities.add({
+          polyline: {
+            positions: Cartesian3.fromDegreesArrayHeights([...ring, ring[0]].flatMap(([x, y]) => [x, y, 300])),
+            width: 3,
+            arcType: ArcType.GEODESIC,
+            material: accent,
+            depthFailMaterial: accent.withAlpha(0.7),
+          },
+        });
+      }
+    }
+    if (draft?.length) {
+      for (const [x, y] of draft)
+        ds.entities.add({ position: Cartesian3.fromDegrees(x, y, 300), point: { pixelSize: 9, color: accent, outlineColor: Color.WHITE, outlineWidth: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY } });
+      if (draft.length > 1)
+        ds.entities.add({
+          polyline: {
+            positions: Cartesian3.fromDegreesArrayHeights([...draft, ...(draft.length > 2 ? [draft[0]] : [])].flatMap(([x, y]) => [x, y, 300])),
+            width: 2,
+            arcType: ArcType.GEODESIC,
+            material: accent.withAlpha(0.8),
+            depthFailMaterial: accent.withAlpha(0.6),
+          },
+        });
+    }
+  }, [area, draft, drawMode]);
+
+  useEffect(() => {
+    const v = viewerRef.current;
+    if (!v || !area?.length) return;
+    const [w, s, e, n] = polyBbox(area);
+    const pad = Math.max(e - w, n - s) * 0.6 + 0.1;
+    // phone: the half-height sheet covers the lower map, so frame the area higher up
+    const below = props.centerOnSelect ? (n - s) * 1.6 + pad : pad;
+    flyToRect(v, Rectangle.fromDegrees(w - pad, s - below, e + pad, n + pad), 1.4);
+  }, [area]);
 
   const firstFly = useRef(true);
   useEffect(() => {

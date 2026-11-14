@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Viewer } from "cesium";
 import Globe, { type Hover } from "./cesium/Globe";
+import type { Poly } from "./aoi";
 import AboutModal from "./components/AboutModal";
+import AreaPanel from "./components/AreaPanel";
 import { CellDetail, PointDetail } from "./components/CellDetail";
 import ControlPanel from "./components/ControlPanel";
 import DownloadMenu from "./components/DownloadMenu";
@@ -67,7 +69,51 @@ export default function App() {
   const mobile = useMobile();
   const [sheet, setSheet] = useState<Sheet>(null);
   const [sheetFull, setSheetFull] = useState(true);
+  const [areaOpen, setAreaOpen] = useState(false);
+  const [area, setAreaPoly] = useState<Poly | null>(null);
+  const [areaName, setAreaName] = useState("");
+  const [drawing, setDrawing] = useState(false);
+  const [draft, setDraft] = useState<number[][]>([]);
   const viewer = useRef<Viewer | null>(null);
+
+  const showPanel = () => {
+    if (mobile) {
+      setSheet("insights");
+      setSheetFull(true);
+    }
+  };
+  const openArea = () => {
+    setAreaOpen(true);
+    setCell(null);
+    setPoint(null);
+    showPanel();
+  };
+  const setArea = (p: Poly | null, name = "Drawn area") => {
+    setAreaPoly(p);
+    setAreaName(p ? name : "");
+    if (p && mobile) {
+      setSheet("insights");
+      setSheetFull(false);
+    }
+  };
+  const startDraw = () => {
+    setDrawing(true);
+    setDraft([]);
+    setCell(null);
+    setPoint(null);
+    if (mobile) setSheet(null);
+  };
+  const finishDraw = () => {
+    setDrawing(false);
+    setDraft([]);
+    if (draft.length >= 3) setArea([[draft]], "Drawn area");
+    else showPanel();
+  };
+  const cancelDraw = () => {
+    setDrawing(false);
+    setDraft([]);
+    showPanel();
+  };
 
   // on a phone, tapping a cell or a detection opens its details in a half-height sheet,
   // so the tapped spot stays visible above it
@@ -191,11 +237,15 @@ export default function App() {
       } else if (e.key === "Escape") {
         setCell(null);
         setPoint(null);
+        setDrawing(false);
+        setDraft([]);
+      } else if (e.key === "Enter" && drawing) {
+        finishDraw();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [step, about, method]);
+  }, [step, about, method, drawing, draft]);
 
   const values = useMemo(() => (data ? cellRangeValues(data, sensor, range) : new Float64Array()), [data, sensor, range]);
   const medians = useMemo(() => (data ? cellRangeMedians(data, range) : new Float64Array()), [data, range]);
@@ -254,11 +304,23 @@ export default function App() {
     return (
       <div className="splash">
         <FlameMark size={48} />
-        <h2>Could not load the data</h2>
-        <p className="mono">{error}</p>
-        <p>
-          Run <code>.venv/bin/python scripts/07_export_web.py</code> in the project folder, then reload.
-        </p>
+        {datasets.length === 0 || (datasets.length === 1 && !datasets[0].id) ? (
+          <>
+            <h2>The fire records are being prepared</h2>
+            <p>This deployment does not contain a dataset yet. Please come back soon.</p>
+            <p className="help small">
+              Running it yourself? Run <code>scripts/07_export_web.py</code> in the project folder, then reload.
+            </p>
+          </>
+        ) : (
+          <>
+            <h2>Could not load the data</h2>
+            <p className="mono">{error}</p>
+            <p>
+              Run <code>.venv/bin/python scripts/07_export_web.py</code> in the project folder, then reload.
+            </p>
+          </>
+        )}
       </div>
     );
 
@@ -286,6 +348,10 @@ export default function App() {
         points={points}
         selectedCell={layer === "grid" ? cell : null}
         centerOnSelect={mobile}
+        area={areaOpen && !drawing ? area : null}
+        draft={drawing ? draft : undefined}
+        drawMode={drawing}
+        onDrawPoint={(p) => setDraft((d) => [...d, p])}
         onSelectCell={setCell}
         onSelectPoint={setPoint}
         onHover={setHover}
@@ -298,6 +364,8 @@ export default function App() {
         onMethod={() => setMethod(true)}
         onStory={storyReady ? playStory : undefined}
         storyLabel={`${STORY.region}, Aug ${STORY.year}`}
+        onArea={() => (areaOpen && !mobile ? setAreaOpen(false) : openArea())}
+        areaOn={areaOpen}
         datasets={datasets}
         datasetId={datasetId ?? ""}
         onDataset={setDatasetId}
@@ -330,7 +398,7 @@ export default function App() {
       />
 
       {/* keyed by content so a new cell or detection starts at the top of the panel */}
-      <aside className="panel right glass" key={point ? "pt" : cell !== null ? `cell-${cell}` : "insights"}>
+      <aside className="panel right glass" key={point ? "pt" : cell !== null ? `cell-${cell}` : areaOpen ? `area-${areaName}` : "insights"}>
         {mobile && (
           <button className="sheet-grip" onClick={() => setSheetFull((f) => !f)} aria-label={sheetFull ? "Shrink panel" : "Expand panel"} />
         )}
@@ -338,6 +406,17 @@ export default function App() {
           <PointDetail p={point} onClose={() => setPoint(null)} />
         ) : cell !== null && layer === "grid" ? (
           <CellDetail data={data} i={cell} range={range} medianTotal={medians[cell]} setRange={setRange} onClose={() => setCell(null)} />
+        ) : areaOpen ? (
+          <AreaPanel
+            data={data}
+            range={range}
+            setRange={setRange}
+            area={area}
+            areaName={areaName}
+            setArea={setArea}
+            onDraw={startDraw}
+            onClose={() => setAreaOpen(false)}
+          />
         ) : (
           <InsightPanel data={data} region={region} range={range} sensor={sensor} colorMode={colorMode} setRange={setRange} />
         )}
@@ -351,6 +430,24 @@ export default function App() {
         max={legendMax}
         baseline={`${meta.calibration.baseline_years[0]}–${meta.calibration.baseline_years[1]}`}
       />
+      {drawing && (
+        <div className="draw-bar glass" role="toolbar" aria-label="Draw your area">
+          <span>
+            {draft.length < 3
+              ? `${mobile ? "Tap" : "Click"} the map to add corners (${draft.length}/3 at least)`
+              : `${draft.length} corners · Finish to analyze`}
+          </span>
+          <button className="btn ghost" disabled={!draft.length} onClick={() => setDraft((d) => d.slice(0, -1))}>
+            Undo
+          </button>
+          <button className="btn primary" disabled={draft.length < 3} onClick={finishDraw}>
+            Finish
+          </button>
+          <button className="btn ghost" onClick={cancelDraw}>
+            Cancel
+          </button>
+        </div>
+      )}
       {layer === "points" && loadingPts && <div className="loading-pill glass">Loading detections…</div>}
       {switching && <div className="loading-pill glass">Loading {datasets.find((d) => d.id === datasetId)?.name ?? "dataset"}…</div>}
 

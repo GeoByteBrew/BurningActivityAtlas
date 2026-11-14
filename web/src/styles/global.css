@@ -1275,6 +1275,77 @@ kbd {
   color: var(--warn);
 }
 
+/* ---------- analyze your area ---------- */
+.btn.ghost.on {
+  color: var(--text);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.detail.area .lead {
+  margin: 12px 0 0;
+}
+.area-actions,
+.area-downloads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+.btn:disabled {
+  opacity: 0.4;
+  filter: grayscale(0.7);
+  cursor: not-allowed;
+}
+.area-downloads .btn,
+.area-actions .btn {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+.area-error {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text);
+  background: color-mix(in srgb, #ff4d4d 14%, transparent);
+  border: 1px solid color-mix(in srgb, #ff4d4d 40%, transparent);
+}
+.draw-bar {
+  position: absolute;
+  z-index: 9;
+  top: calc(var(--top-h) + var(--gap) * 2);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 14px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.draw-bar span {
+  color: var(--muted);
+  margin-right: 4px;
+}
+@media (max-width: 900px) {
+  .draw-bar {
+    left: var(--gap);
+    right: var(--gap);
+    transform: none;
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+  .draw-bar span {
+    flex: 1 1 100%;
+  }
+  .draw-bar .btn {
+    flex: 1;
+    justify-content: center;
+    min-height: 40px;
+  }
+}
+
 /* ---------- splash ---------- */
 .splash {
   height: 100%;
