@@ -17,3 +17,7 @@ data/aoi/world_regions.gpkg
 
 web/node_modules/
 web/dist/
+
+# Incoming transfer archives (go to GitHub Release, not git)
+wetransfer_*.zip
+*.zip
