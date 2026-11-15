@@ -24,7 +24,8 @@ export interface DatasetEntry {
   path: string;
   bbox: [number, number, number, number];
   cell_size_m: number;
-  kind?: "overview" | "detail";
+  /** overview = world; mid = 10 km zoom step; detail = 5 km + detections */
+  kind?: "overview" | "mid" | "detail";
   n_cells?: number;
 }
 

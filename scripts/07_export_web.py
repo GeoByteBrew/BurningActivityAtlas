@@ -77,13 +77,17 @@ def export_dataset(cfg, ds: dict, out, overview: bool) -> dict | None:
     agg, harm, csv, proc = path(cfg, "aggregated"), path(cfg, "harmonized"), path(cfg, "csv"), path(cfg, "processed")
     base_years = list(range(hc["baseline_years"][0], hc["baseline_years"][1] + 1))
     bbox = ds.get("bbox") or cfg["aoi"]["bbox_wgs84"]
-    size = int(ds.get("cell_m", fs)) if overview else fs
-    level = ds.get("region_level", "super" if overview else "region")
+    # cell_m may coarsen a detail window (e.g. 10 km mid step); default = factor scale (5 km)
+    size = int(ds.get("cell_m", fs))
+    if size % fs:
+        raise SystemExit(f"dataset {ds['id']}: cell_m={size} must be a multiple of {fs}")
+    kind = ds.get("kind") or ("overview" if overview else "detail")
+    level = ds.get("region_level", "super" if overview or kind == "overview" else "region")
     clipped = ds.get("bbox") is not None                       # a window inside the domain
     # global runs: keep cells inside the domain bbox only (detections processed before the bbox
     # flag existed may lie beyond it, e.g. Antarctica)
     in_domain = clipped or not cfg["aoi"].get("clip", True)
-    log.info("dataset %s: %s cells, regions = %s, bbox %s", ds["id"], label(size), level, bbox)
+    log.info("dataset %s: %s cells, kind=%s, regions = %s, bbox %s", ds["id"], label(size), kind, level, bbox)
 
     # ---- cell × month table inside the bbox, at the dataset's cell size
     mroot = harm / f"monthly_{label(fs)}"
@@ -160,8 +164,9 @@ def export_dataset(cfg, ds: dict, out, overview: bool) -> dict | None:
     # ---- raw detections per platform: region × month counts (and points for detail windows)
     reg_file = gpd.read_file(ROOT / cfg["aoi"]["file"]).to_crs("EPSG:4326")
     parent = dict(zip(reg_file["name"], reg_file["parent"])) if "parent" in reg_file else {}
-    has_points = not overview and ds.get("points", True)
-    if overview or not has_points:
+    # mid-scale windows stay grid-only; detections belong on the 5 km detail datasets
+    has_points = kind == "detail" and ds.get("points", True) and size <= fs
+    if overview or kind == "overview" or not has_points:
         rm = store.read_all(agg / "region_month")
         rm["reg"] = rm["region"].map(parent) if level == "super" else rm["region"]
         if clipped:
@@ -282,7 +287,31 @@ def export_dataset(cfg, ds: dict, out, overview: bool) -> dict | None:
     }
     dump(meta, out / "meta.json")
     return {"id": ds["id"], "name": meta["region_name"], "path": ds["id"], "bbox": bbox, "cell_size_m": size,
-            "kind": "overview" if overview else "detail", "n_cells": len(cells)}
+            "kind": kind, "n_cells": len(cells)}
+
+
+def web_todo(wc: dict, fs: int) -> list[tuple[dict, bool]]:
+    """overview → 10 km mid windows (zoom LOD) → 5 km detail windows."""
+    todo: list[tuple[dict, bool]] = []
+    if wc.get("overview"):
+        o = dict(wc["overview"])
+        o.setdefault("kind", "overview")
+        todo.append((o, True))
+    details = list(wc.get("details") or [])
+    for d in details:
+        mid = dict(d)
+        mid["id"] = f"{d['id']}_10km"
+        mid["cell_m"] = 10000
+        mid["points"] = False
+        mid["kind"] = "mid"
+        mid.setdefault("name", d.get("name", d["id"]))
+        todo.append((mid, False))
+    for d in details:
+        det = dict(d)
+        det.setdefault("kind", "detail")
+        det.setdefault("cell_m", fs)
+        todo.append((det, False))
+    return todo
 
 
 def main():
@@ -297,7 +326,7 @@ def main():
         raise SystemExit("no harmonized monthly tables — run 06_harmonize.py first")
     only = set(args.only.split(",")) if args.only else None
     wc = cfg.get("web", {})
-    todo = ([(wc["overview"], True)] if wc.get("overview") else []) + [(d, False) for d in wc.get("details") or []]
+    todo = web_todo(wc, fs)
     index_f = out / "datasets.json"
     wanted = {d["id"] for d, _ in todo}
     old = {d["id"]: d for d in json.loads(index_f.read_text())["datasets"]} if index_f.exists() else {}
@@ -312,7 +341,8 @@ def main():
             index[ds["id"]] = entry
     order = [d["id"] for d, _ in todo]
     datasets = sorted(index.values(), key=lambda d: order.index(d["id"]) if d["id"] in order else len(order))
-    dump({"default": datasets[0]["id"] if datasets else None, "datasets": datasets}, index_f)
+    default = next((d["id"] for d in datasets if d.get("kind") == "overview"), datasets[0]["id"] if datasets else None)
+    dump({"default": default, "datasets": datasets}, index_f)
 
 
 if __name__ == "__main__":

@@ -60,14 +60,22 @@ export default function Header({
       </div>
       <div className="topbar-right">
         {datasets && datasets.length > 1 && onDataset && (
-          <label className="dataset-pick" title="World overview (coarse cells) or a regional window (5 km cells and single detections)">
+          <label
+            className="dataset-pick"
+            title="World at 25 km. Zoom into a named window for 10 km then 5 km (or pick the window here)."
+          >
             <span>View</span>
-            <select value={datasetId} onChange={(e) => onDataset(e.target.value)}>
-              {datasets.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name} · {d.cell_size_m / 1000} km
-                </option>
-              ))}
+            <select
+              value={(datasetId ?? "").endsWith("_10km") ? (datasetId ?? "").replace(/_10km$/, "") : datasetId}
+              onChange={(e) => onDataset(e.target.value)}
+            >
+              {datasets
+                .filter((d) => d.kind !== "mid")
+                .map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} · {d.cell_size_m / 1000} km
+                  </option>
+                ))}
             </select>
           </label>
         )}
