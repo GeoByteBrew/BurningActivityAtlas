@@ -137,7 +137,6 @@ Known limits of this run:
 - Eastern Asia is converted too low (0.76); volcanic eruptions (Iceland 2021) and some industrial sources
   are not classified the same way by the two products and give wrong local values.
 - NOAA-20 and NOAA-21 were not downloaded: the backup platforms are tested on synthetic data only.
-- A separate regional dataset **Iberia + Occitanie** on this site includes NOAA-20/21 (downloaded 2026-11-14); it is not the world run.
 - No external validation yet (burned area, known fires).
 
 Tests: 25 passed, including an end-to-end run on a synthetic archive with known ratios.
