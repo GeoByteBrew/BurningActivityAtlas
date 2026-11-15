@@ -1,5 +1,6 @@
 # AI disclosure: written with the assistance of an AI tool (large language model). See AI_USE.md.
-# Global multi-year validation: 2012–2025
+# Published world experiment (run of 2026-11-15): MODIS Terra/Aqua + VIIRS S-NPP only.
+# Extends config.yaml (same sources/predictors). Own folders so runs do not overwrite each other.
 extends: config.yaml
 
 project:
@@ -18,6 +19,16 @@ calibration:
 harmonization:
   baseline_years: [2012, 2024]
   fine_scale: false
+  # Explicit: no NOAA backup predictors in the published experiment
+  predictors:
+    - {name: terra+aqua, platforms: [Terra, Aqua], sensor: MODIS}
+    - {name: terra,      platforms: [Terra],       sensor: MODIS}
+    - {name: aqua,       platforms: [Aqua],        sensor: MODIS}
+
+firms:
+  sources:
+    - {source: MODIS_SP,      sensor: MODIS, product: MCD14ML_C61}
+    - {source: VIIRS_SNPP_SP, sensor: VIIRS, product: VNP14IMG, platform: S-NPP}
 
 paths:
   processed: data/world_multiyear/processed

@@ -15,7 +15,7 @@ Versions: [05_version_comparison.md](05_version_comparison.md)
 **Harmonization**
 - [x] Availability calendar: known outages file + screening of domain-wide daily counts
 - [x] Hierarchical ratio factors on the VIIRS-equivalent scale, by predictor and by day/night
-- [x] NOAA-20 / NOAA-21 as backup of S-NPP; MODIS backcast to 2003
+- [x] MODIS backcast to 2003; NOAA-20 / NOAA-21 backup **architecture** (code + synthetic tests; not run on real archives yet)
 - [x] Validation: held-out months, yearly drift check, independent year, split vs pooled day/night
 - [x] Uncertainty: bootstrap intervals for regional factors, standard error and dispersion for local ones
 - [x] Monthly calendar, historical median (zeros included), anomaly
@@ -42,7 +42,8 @@ Results of the first world run: [05_version_comparison.md](05_version_comparison
 2. **Volcanoes and static sources**: mask them in both sensors (Iceland 2021 is wrong by a factor of 40–70).
 3. **Eastern Asia**: understand the low conversion (0.76 held-out).
 4. Check the 24 detected outages against the FIRMS mission notes (Aqua August 2020, S-NPP 2024).
-5. Download NOAA-20 and NOAA-21 and measure the backup factors on real data.
+5. **Integrate NOAA-20 and NOAA-21 on real FIRMS archives**: download SP yearly files, enable them in
+   `config` as backup predictors, measure factors against S-NPP, and re-validate outage fill days.
 6. External validation: EFFIS and MCD64A1 burned area, known large fires on several continents.
 7. Three-way experiment for the presentation: raw MODIS, converted MODIS, real VIIRS on one region.
 

@@ -201,8 +201,10 @@ export default function ControlPanel(p: Props) {
         </div>
         <p className="help small">
           Quality filter {p.meta.qc_scenario}: {p.meta.qc_description}. Vegetation fires only. Harmonized series uses{" "}
-          {p.meta.reference_platform} as reference
-          {p.meta.backup_platforms?.length ? `, ${p.meta.backup_platforms.join(" / ")} as backup when it is down` : ""}.
+          {p.meta.reference_platform} as reference; when it is down, MODIS converted with the calibrated factor
+          {p.meta.backup_platforms?.length
+            ? ` (optional VIIRS backups ${p.meta.backup_platforms.join(" / ")} when configured)`
+            : ""}.
           {p.meta.points_dropped ? ` Detections layer: the ${fmt(p.meta.points_dropped)} weakest detections are not drawn.` : ""}
         </p>
       </section>

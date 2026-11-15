@@ -41,7 +41,8 @@ prototype (~4.05 vs 4.14–4.28 for Terra+Aqua).
   totals, not single 5 km cells.
 - Eastern Asia converts too low (~0.76); some volcanoes and industrial sources disagree between products
   (e.g. Iceland 2021).
-- NOAA-20 / NOAA-21 backups were **not** in this world download; the series uses S-NPP, else MODIS × factor.
+- NOAA-20 / NOAA-21 were **not** downloaded and are **not** in the published config; the series uses S-NPP,
+  else MODIS × factor. NOAA backup support is code-ready / synthetic-tested only.
 - No external burned-area validation yet (EFFIS, MCD64A1).
 
 ## Data & reproducibility

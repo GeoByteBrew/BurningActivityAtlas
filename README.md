@@ -8,8 +8,10 @@ The default configuration (`config/config.yaml`) is the world, 2003–2025. Ever
 on partitioned files, so the same code also runs on one year (`config/world_test_2019.yaml`) or on any
 smaller domain (set `aoi.bbox_wgs84`).
 
-Core principle: sensors are never pooled. The record is VIIRS S-NPP when it works; otherwise one stand-in
-(NOAA-20, NOAA-21, then MODIS) converted with a factor measured on days when both worked.
+Core principle: sensors are never pooled. In the **published world experiment** the record is VIIRS S-NPP
+when it works; otherwise MODIS (Terra+Aqua, or one platform) converted with a factor measured on days
+when both worked. NOAA-20 / NOAA-21 backup support exists in the code and synthetic tests, but those
+archives were **not** downloaded for this run and are not part of the published result.
 
 ## Documents
 
@@ -23,6 +25,7 @@ Core principle: sensors are never pooled. The record is VIIRS S-NPP when it work
 | [docs/06_global_scale.md](docs/06_global_scale.md) | **Running on the world**: partitions, commands, web datasets, open points |
 | [AI_USE.md](AI_USE.md) | Where and how AI tools were used |
 | [docs/07_nasa_submission.md](docs/07_nasa_submission.md) | Short NASA Space Apps blurb (results + limits) |
+| [docs/data_manifest.md](docs/data_manifest.md) | Raw FIRMS archives used for the published run (not in git) |
 | [outputs/world_multiyear/reports/harmonization_report.md](outputs/world_multiyear/reports/harmonization_report.md) | World run validation report |
 
 ## Setup
@@ -31,10 +34,35 @@ Core principle: sensors are never pooled. The record is VIIRS S-NPP when it work
 cd BurningActivityAtlas                   # the cloned repository
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-cp .env.example .env                          # fill in FIRMS_MAP_KEY
 ```
 
-FIRMS MAP_KEY (free): <https://firms.modaps.eosdis.nasa.gov/api/map_key/>
+No API key is required to reproduce the published analysis (see **Data acquisition** below).
+
+## Data acquisition
+
+The published global dataset was built from **NASA FIRMS yearly country archives**, downloaded from the
+FIRMS archive portal — not from the FIRMS area API.
+
+Raw CSV files are not in this repository (size). To reproduce the analysis, download the archives and
+extract them into:
+
+```
+data/raw/world/
+├── MODIS_SP/          # yearly country CSV files, 2003–2025
+└── VIIRS_SNPP_SP/     # yearly country CSV files, 2012–2025
+```
+
+| Product | Coverage used | Role in the published run |
+|---|---|---|
+| MODIS MCD14ML Collection 6.1 (`MODIS_SP`) | 2003–2025 | Historical series + calibration predictor |
+| VIIRS S-NPP VNP14IMG (`VIIRS_SNPP_SP`) | 2012–2025 | Reference and validation |
+
+Portal: <https://firms.modaps.eosdis.nasa.gov/> · File checklist and checksums (when available):
+[docs/data_manifest.md](docs/data_manifest.md).
+
+An optional FIRMS API downloader lives in `scripts/01_download_data.py` (needs a free `FIRMS_MAP_KEY` in
+`.env`; see `.env.example`). It was **not** used for the published world run. Never commit a real API key
+(`.gitignore` already excludes `.env`).
 
 ## Pipeline order
 
@@ -45,8 +73,11 @@ export MVH_CONFIG=config/world_test_2019.yaml     # the world for one year (quic
 
 .venv/bin/python scripts/00_prepare_aoi.py        # regions: countries + UN sub-regions
 .venv/bin/python scripts/03_create_grid.py        # prints the tile layout (world: nothing is materialized)
-.venv/bin/python scripts/01_download_data.py --check   # MAP_KEY + product availability
-.venv/bin/python scripts/01_download_data.py      # FIRMS API → data/raw/<region>/<SOURCE>/ (resumable)
+# Place FIRMS yearly archives under data/raw/world/ as above (preferred for the full record).
+# Optional API path (not used for the published run):
+#   cp .env.example .env   # set FIRMS_MAP_KEY
+#   .venv/bin/python scripts/01_download_data.py --check
+#   .venv/bin/python scripts/01_download_data.py
 .venv/bin/python scripts/02_quality_control.py    # schema, cells, QC flags, region → detections/<tile>/<year>
 .venv/bin/python scripts/04_aggregate.py          # overpasses, daily cell counts (day/night)
 .venv/bin/python scripts/06_harmonize.py          # availability, factors, validation, series, calendar, report
@@ -63,9 +94,8 @@ What stage 06 does, in short:
 
 - **Availability**: operational periods minus known outages (`data/ancillary/outages.csv`) minus outages
   found in domain-wide daily counts (world run).
-- **Factors**: Σ VIIRS / Σ predictor per predictor and day/night half, shrunk along
-  all → super-region → region → 5 km cell → cell-month (K = 50). MODIS is calibrated on 2012–2019,
-  NOAA-20/21 on their overlap with S-NPP.
+- **Factors**: Σ VIIRS / Σ predictor per MODIS predictor and day/night half, shrunk along
+  all → super-region → region → 5 km cell → cell-month (K = 50). MODIS is calibrated on 2012–2019.
 - **Validation**: held-out months, yearly drift check, independent year; split vs pooled day/night factors;
   region × month table of the largest departures.
 - **Uncertainty**: bootstrap interval for regional factors, `f_se` and held-out dispersion for local ones.
@@ -79,7 +109,8 @@ map and in the calendar means more detections than usual for the baseline years,
   detections. `?dataset=<id>` opens one directly. Windows are listed under `web.details` in the configuration.
 - Timeline: a year, a month, or a range with shift-click; ←/→ shifts the range, Space plays. Years are
   marked as MODIS backcast, calibration, drift check or test.
-- Compare sensors: raw MODIS, raw VIIRS, their raw gap, and converted MODIS − real VIIRS.
+- Compare sensors: raw MODIS and raw VIIRS. Diagnostic layers (raw gap, residual after conversion) are under
+  Method → See it on the map.
 - Method: conversion factor with 90% interval, converted / VIIRS ratio by year, day/night factors, outages
   and the cell-scale limitation.
 - Download: regional monthly series CSV, cell CSV, charts PNG, map PNG.
@@ -143,7 +174,8 @@ Known limits of this run:
 - Single cells stay uncertain: the cell-month error barely improves (4.51 → 4.39).
 - Eastern Asia is converted too low (0.76); volcanic eruptions (Iceland 2021) and some industrial sources
   are not classified the same way by the two products and give wrong local values.
-- NOAA-20 and NOAA-21 were not downloaded: the backup platforms are tested on synthetic data only.
+- NOAA-20 / NOAA-21 were **not** used: not downloaded, not in the published config; backup paths are
+  tested on synthetic data only (planned for a later version).
 - No external validation yet (burned area, known fires).
 
 Tests: 25 passed, including an end-to-end run on a synthetic archive with known ratios.

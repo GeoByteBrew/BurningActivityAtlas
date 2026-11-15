@@ -57,23 +57,26 @@ python scripts/07_export_web.py               # world overview (50 km) + detail 
 cd web && npm install && npm run dev          # http://localhost:5173
 ```
 
-**Input data.** Raw CSV files go to `data/raw/<region>/<SOURCE>/`, with `<SOURCE>` = `MODIS_SP`,
-`VIIRS_SNPP_SP`, `VIIRS_NOAA20_SP`, `VIIRS_NOAA21_SP` and `<region>` = `project.region` of the configuration.
-Two sources are supported:
+**Input data.** For the published experiment, raw CSV files go to `data/raw/<region>/<SOURCE>/` with
+`<SOURCE>` = `MODIS_SP` and `VIIRS_SNPP_SP` (`<region>` = `project.region`). NOAA-20 / NOAA-21 source
+folders are optional later; they are not required to reproduce the published results. Checklist:
+[data_manifest.md](data_manifest.md).
+
+Two acquisition paths:
 
 - *FIRMS yearly summaries by country* (archive download page): one zip per instrument and year holding one
-  CSV per country. Files are read whatever their name or extent, sub-folders included. This is the source
-  of the published run. The `type` column must be present: without it static sources (gas flares,
-  industry) cannot be excluded.
-- *FIRMS API* (`01_download_data.py`): the world is requested in 30° boxes and 5-day chunks, about 13 000
-  requests for three sources of one year; the download is resumable. Practical for one year, not for the
-  full record.
+  CSV per country. Files are read whatever their name or extent, sub-folders included. **This is how the
+  published world run was built.** No API key. The `type` column must be present: without it static
+  sources (gas flares, industry) cannot be excluded.
+- *FIRMS API* (`01_download_data.py`, optional): needs `FIRMS_MAP_KEY` in `.env`. The world is requested in
+  30° boxes and 5-day chunks; the download is resumable. Practical for a short test, not for the full
+  record. **Not used** for the published run.
 
 **One year first** (`config/world_test_2019.yaml`). 2019 is the last year of the MODIS calibration period
-and has MODIS, S-NPP and NOAA-20. A one-year run gives world factors by sub-region and by day/night, the
-outage screening and a held-out validation inside the year (factors fitted on January–August, scored on
-September–December). It cannot show drift after 2019, the independent year or anomalies: the "normal" is
-2019 itself, so every ratio to normal is about 1.
+and has MODIS + S-NPP in the published source set. A one-year run gives world factors by sub-region and by
+day/night, the outage screening and a held-out validation inside the year (factors fitted on
+January–August, scored on September–December). It cannot show drift after 2019, the independent year or
+anomalies: the "normal" is 2019 itself, so every ratio to normal is about 1.
 
 **Full record** (`config/multi_year.yaml`, or the default configuration): 2003–2025. Run on 2026-11-15 from
 the yearly country files of MODIS and S-NPP; 126 tiles hold data. Results:

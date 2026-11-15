@@ -55,16 +55,17 @@ firms:
   # whole bbox). Needed for large domains: FIRMS weighs requests by area and row count.
   # For the full record prefer the yearly archive files (docs/06_global_scale.md).
   tile_deg: 30
-  # Standard (science-quality) products first. Each source is checked against the
-  # data_availability endpoint; unavailable sources are skipped and logged.
+  # Published world experiment: MODIS + VIIRS S-NPP only. NOAA-20 / NOAA-21 are supported
+  # by the code and synthetic tests, but were not downloaded and are not active sources here
+  # (see docs/01_methodology.md §6.1 and docs/03_roadmap.md). To enable later, add e.g.
+  #   - {source: VIIRS_NOAA20_SP, sensor: VIIRS, product: VJ114IMG, platform: NOAA-20}
+  #   - {source: VIIRS_NOAA21_SP, sensor: VIIRS, product: VJ214IMG, platform: NOAA-21}
+  # and matching predictors under harmonization.predictors.
   sources:
-    - {source: MODIS_SP,         sensor: MODIS, product: MCD14ML_C61}
-    - {source: VIIRS_SNPP_SP,    sensor: VIIRS, product: VNP14IMG,  platform: S-NPP}
-    - {source: VIIRS_NOAA20_SP,  sensor: VIIRS, product: VJ114IMG,  platform: NOAA-20}
-    - {source: VIIRS_NOAA21_SP,  sensor: VIIRS, product: VJ214IMG,  platform: NOAA-21}
+    - {source: MODIS_SP,      sensor: MODIS, product: MCD14ML_C61}
+    - {source: VIIRS_SNPP_SP, sensor: VIIRS, product: VNP14IMG, platform: S-NPP}
   # Used only if the SP version of a platform is missing for part of the period.
-  nrt_fallback:
-    VIIRS_NOAA21_SP: VIIRS_NOAA21_NRT
+  nrt_fallback: {}
 
 crs:
   # WGS 84 / NSIDC EASE-Grid 2.0 Global (cylindrical equal-area). Cells are counted from the
@@ -102,11 +103,9 @@ temporal:
   overpass_gap_min: 20
   # Cross-sensor overpass matching tolerances (minutes); 5 is the literature baseline (Aqua–S-NPP).
   match_tolerance_min: [5, 10, 20]
-  # Platform pairs evaluated for near-simultaneous observation
+  # Platform pairs evaluated for near-simultaneous observation (published experiment)
   match_pairs:
     - [Aqua, S-NPP]
-    - [Aqua, NOAA-20]
-    - [Aqua, NOAA-21]
     - [Terra, S-NPP]
 
 availability:
@@ -123,11 +122,11 @@ harmonization:
   reference_platform: S-NPP     # VIIRS-equivalent target (single platform = consistent series)
   # Stand-ins for the reference, in priority order. On a day without S-NPP the first predictor
   # whose platforms all work is used, multiplied by its factor; sources are never summed.
+  # Published experiment: MODIS predictors only. NOAA-20 / NOAA-21 backup predictors are
+  # implemented in code and tested on synthetic data; re-add here when real archives are ingested.
   # calibration: [start, end] of the days a predictor is calibrated on (null = from its first day).
   # max_level: deepest hierarchy level it may use (all | super | region | cell | cell_month).
   predictors:
-    - {name: noaa-20,    platforms: [NOAA-20],     sensor: VIIRS, calibration: [null, "2024-12-31"], max_level: region}
-    - {name: noaa-21,    platforms: [NOAA-21],     sensor: VIIRS, calibration: [null, "2024-12-31"], max_level: region}
     - {name: terra+aqua, platforms: [Terra, Aqua], sensor: MODIS}   # MODIS: calibration.end below
     - {name: terra,      platforms: [Terra],       sensor: MODIS}
     - {name: aqua,       platforms: [Aqua],        sensor: MODIS}
@@ -140,14 +139,14 @@ harmonization:
   train_fraction: 0.7           # chronological split inside each calibration window
   n_bootstrap: 500
   baseline_years: [2012, 2024]  # climatology for the calendar / anomalies (2025 = test year)
-  # Operational periods of the SP products (FIRMS data_availability, checked 2026-11-14;
-  # Terra/Aqua start = mission start of MCD14ML). null = still running.
+  # Operational periods of the SP products used in the published experiment
+  # (FIRMS data_availability, checked 2026-11-14; Terra/Aqua start = MCD14ML mission start).
+  # null = still running. NOAA-20 / NOAA-21 periods belong in a future config when those
+  # archives are downloaded (~2018-04 / ~2023-03).
   operational:
     Terra: ["2000-11-01", null]
     Aqua: ["2002-07-04", null]
     S-NPP: ["2012-01-20", null]
-    NOAA-20: ["2018-04-01", null]
-    NOAA-21: ["2023-03-01", null]
 
 web:
   # One dataset per entry under web/public/data/<id>/, listed in datasets.json.

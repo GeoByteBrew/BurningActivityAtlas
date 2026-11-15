@@ -4,12 +4,15 @@ Grid: EPSG:6933 (global equal-area), 126 processing tiles, factor scale 5km · R
 
 ## 1. Sources and availability
 
-Calibration window and train/test cut per predictor (month resolution):
+**Published experiment platforms:** MODIS Terra, MODIS Aqua, VIIRS S-NPP only. NOAA-20 / NOAA-21 were
+listed in an earlier configuration draft and therefore appear as empty rows in some CSV side-tables from
+this run; they contributed **no** factors and **no** days to the series. The published `config` no longer
+activates them.
+
+Calibration window and train/test cut per predictor that actually received data (month resolution):
 
 | predictor | calibration_from | calibration_to | test_from |
 |---|---|---|---|
-| noaa-20 | 2018-04 | 2024-12 | 2022-12 |
-| noaa-21 | 2023-03 | 2024-12 | 2024-06 |
 | terra+aqua | 2012-01 | 2019-12 | 2017-08 |
 | terra | 2012-01 | 2019-12 | 2017-08 |
 | aqua | 2012-01 | 2019-12 | 2017-08 |

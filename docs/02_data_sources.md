@@ -2,26 +2,27 @@
 
 ## 1. FIRMS products (active fire points)
 
-| FIRMS source | Sensor / platform | Product | Pixel | Start (approx.) |
-|---|---|---|---|---|
-| `MODIS_SP` / `MODIS_NRT` | MODIS Terra + Aqua | MCD14ML C6.1 | 1 km (nadir) | Terra 2000-11, Aqua 2002-07 |
-| `VIIRS_SNPP_SP` / `_NRT` | VIIRS S-NPP | VNP14IMG | 375 m | 2012-01 |
-| `VIIRS_NOAA20_SP` / `_NRT` | VIIRS NOAA-20 (JPSS-1) | VJ114IMG | 375 m | 2018-01 (FIRMS) |
-| `VIIRS_NOAA21_SP` / `_NRT` | VIIRS NOAA-21 (JPSS-2) | VJ214IMG | 375 m | 2024-01 (FIRMS) |
+| FIRMS source | Sensor / platform | Product | Pixel | Start (approx.) | Used in published world run |
+|---|---|---|---|---|---|
+| `MODIS_SP` / `MODIS_NRT` | MODIS Terra + Aqua | MCD14ML C6.1 | 1 km (nadir) | Terra 2000-11, Aqua 2002-07 | **Yes** (SP archives, 2003–2025) |
+| `VIIRS_SNPP_SP` / `_NRT` | VIIRS S-NPP | VNP14IMG | 375 m | 2012-01 | **Yes** (SP archives, 2012–2025) |
+| `VIIRS_NOAA20_SP` / `_NRT` | VIIRS NOAA-20 (JPSS-1) | VJ114IMG | 375 m | 2018-01 (FIRMS) | **No** — catalogued / code-ready only |
+| `VIIRS_NOAA21_SP` / `_NRT` | VIIRS NOAA-21 (JPSS-2) | VJ214IMG | 375 m | 2024-01 (FIRMS) | **No** — catalogued / code-ready only |
 
-Dates are approximate. The exact range is read from the FIRMS `data_availability` endpoint
-(`scripts/01_download_data.py --check`). For sources without an SP version the NRT fallback is used and kept
-apart in QC through the `source` field.
+Dates are approximate. For API users the exact range can be read from the FIRMS `data_availability`
+endpoint (`scripts/01_download_data.py --check`). For sources without an SP version the NRT fallback is
+used and kept apart in QC through the `source` field.
 
 **Access paths**
-- **API:** `/api/area/csv/{MAP_KEY}/{SOURCE}/{W,S,E,N}/{DAY_RANGE}/{DATE}`. One request covers at most
-  5 days; at most 5000 transactions per 10 minutes. A region the size of the Iberian Peninsula needs about 1000 requests per source for 2012–2025. With
-  `firms.tile_deg` the box is cut into tiles (file names carry the tile tag); the download is resumable.
-- **Archive download (recommended for the world):** firms.modaps.eosdis.nasa.gov/download, yearly files per
-  instrument. The API route for the world means several hundred thousand requests; the archive is a few
-  dozen files. CSVs of any extent placed in `data/raw/<region>/<SOURCE>/` are read by the QC step, which
-  routes every row to its tile itself. The archive files must carry the `type` column (SP products):
-  without it static sources cannot be excluded and `f_type_known` is false.
+- **Archive download (used for the published world run):** firms.modaps.eosdis.nasa.gov/download, yearly
+  country files per instrument. Place CSVs under `data/raw/<region>/<SOURCE>/`; the QC step routes every
+  row to its tile. Archive files must carry the `type` column (SP products): without it static sources
+  cannot be excluded and `f_type_known` is false. Checklist: [data_manifest.md](data_manifest.md).
+- **API (optional, not used for the published run):** `/api/area/csv/{MAP_KEY}/{SOURCE}/{W,S,E,N}/{DAY_RANGE}/{DATE}`.
+  One request covers at most 5 days; at most 5000 transactions per 10 minutes. A region the size of the
+  Iberian Peninsula needs about 1000 requests per source for 2012–2025. With `firms.tile_deg` the box is
+  cut into tiles; the download is resumable. The API route for the whole world means hundreds of thousands
+  of requests; prefer archives for the full record.
 
 ## 2. Fields and standard schema
 

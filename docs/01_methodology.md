@@ -30,8 +30,12 @@ FIRMS raw CSV ─► 02 QC (flags, no deletion; rows routed to tile/year partiti
 |---|---|---|
 | 2003–2011 | MODIS converted to VIIRS-equivalent (**backcast**, not a VIIRS observation) | Long record |
 | 2012–2019 | VIIRS S-NPP observed | Calibration of the MODIS factors (stable Terra/Aqua orbits) |
-| 2020–2024 | VIIRS S-NPP observed | Drift check of the MODIS factors; calibration of NOAA-20 / NOAA-21 |
+| 2020–2024 | VIIRS S-NPP observed | Drift check of the MODIS factors |
 | 2025 | VIIRS S-NPP observed | Independent test |
+
+**Platforms actually used in the published world run (2026-11-15):** MODIS Terra, MODIS Aqua, VIIRS S-NPP.
+NOAA-20 and NOAA-21 are supported by the pipeline architecture and by synthetic tests, but their archives
+were not downloaded and they did **not** contribute factors or days to the published series.
 
 Scientific analyses use the standard products (SP). NRT data are used only for periods without SP and are
 kept apart through the `source` field. Details: [02_data_sources.md](02_data_sources.md).
@@ -44,7 +48,7 @@ No raw record is ever deleted. Every row gets flags (`data/processed/detections/
 |---|---|
 | `f_coord_ok` | -90 ≤ lat ≤ 90, -180 ≤ lon ≤ 180 |
 | `f_time_ok` | UTC time parses and lies inside the analysis period |
-| `f_platform_ok` | Platform (Terra/Aqua/S-NPP/NOAA-20/NOAA-21) recognised |
+| `f_platform_ok` | Platform recognised (published run: Terra / Aqua / S-NPP; NOAA-20 / NOAA-21 recognised by the QC schema for future ingest) |
 | `f_type_ok` | `type` = 0 (vegetation fire). Volcano, static source and offshore detections are excluded. NRT has no `type` (`f_type_known`=False) |
 | `f_duplicate` | Technical duplicate: same source, time and coordinates |
 | `f_grid_ok` | The position projects onto the grid |
@@ -98,9 +102,9 @@ less. Tolerances of 10 and 20 minutes are used for sensitivity analysis.
 
 | Pair | Equator crossing (approx.) | Simultaneous |
 |---|---|---|
-| Aqua – S-NPP | 13:30 / 01:30 | **Yes**: the core calibration pair |
-| Aqua – NOAA-20 / NOAA-21 | NOAA-20 is about half an orbit (~50 min) ahead of S-NPP | Limited. The number of matches is measured in the report |
+| Aqua – S-NPP | 13:30 / 01:30 | **Yes**: the core calibration pair (used in the published run) |
 | Terra – VIIRS | 10:30 / 22:30 | No. Comparable only at daily scale and with a diurnal-cycle correction |
+| Aqua – NOAA-20 / NOAA-21 | NOAA-20 is about half an orbit (~50 min) ahead of S-NPP | Planned when NOAA archives are ingested; not measured on real data in this version |
 
 **Orbit drift.** In recent years Terra and Aqua no longer maintained their altitude and equator crossing
 time, so their overpass times drifted. Because of the diurnal fire cycle, this drift alone can create a
@@ -124,21 +128,28 @@ are unaffected. Daily values far from 0° longitude should be read with that in 
 ### 6.1 Reference, predictors, one source per day
 
 The reference is one VIIRS platform (S-NPP), so the target series has a single, constant observing
-system. A **predictor** is a set of platforms that can stand in for it:
+system. A **predictor** is a set of platforms that can stand in for it.
+
+**Predictors active in the published experiment**
 
 | Priority | Predictor | Calibrated on | Deepest level |
 |---|---|---|---|
-| 1 | NOAA-20 | its overlap with S-NPP up to 2024 | region |
-| 2 | NOAA-21 | its overlap with S-NPP up to 2024 | region |
-| 3 | Terra + Aqua | 2012–2019 | cell-month |
-| 4 | Terra only | 2012–2019 | cell-month |
-| 5 | Aqua only | 2012–2019 | cell-month |
+| 1 | Terra + Aqua | 2012–2019 | cell-month |
+| 2 | Terra only | 2012–2019 | cell-month |
+| 3 | Aqua only | 2012–2019 | cell-month |
 
-For every day the series takes **one** source: S-NPP when it works, otherwise the first predictor whose
-platforms all work, multiplied by its factor. Sources are never summed: adding NOAA-20 and NOAA-21 to
-S-NPP would triple the observation opportunities and create a false increase after 2018.
-VIIRS-to-VIIRS factors are close to 1 and are not fitted below the region level, where their cell ratios
-are sampling noise (the platforms see the same fires 50 minutes apart and from different angles).
+**Planned (code + synthetic tests only; not validated on real observations in this version)**
+
+| Priority (intended) | Predictor | Intended calibration | Deepest level |
+|---|---|---|---|
+| before MODIS | NOAA-20 | overlap with S-NPP | region |
+| before MODIS | NOAA-21 | overlap with S-NPP | region |
+
+For every day the series takes **one** source: S-NPP when it works, otherwise the first *active*
+predictor whose platforms all work, multiplied by its factor. Sources are never summed: adding further
+VIIRS platforms to S-NPP would multiply observation opportunities and create a false increase. When
+NOAA backups are enabled later, VIIRS-to-VIIRS factors should stay at region level at most (cell ratios
+are mostly sampling noise: the platforms see the same fires ~50 minutes apart and from different angles).
 
 ### 6.2 Availability calendar
 
@@ -245,7 +256,8 @@ is not implemented.
 **Limitations.** Hotspot counts are not fire area or event counts. Clouds and missing overpasses create
 undetected fires that no factor recovers. Small agricultural burns are systematically missed by MODIS.
 Terra and Aqua are drifting: MODIS factors calibrated on 2012–2019 are checked, not guaranteed, afterwards.
-After MODIS and S-NPP end, continuity rests on the NOAA-20 / NOAA-21 factors.
+Long-term continuity after S-NPP is intended to use NOAA-20 / NOAA-21 as backups; that path is **not**
+validated on real FIRMS archives in this version (roadmap item).
 
 ## References
 
