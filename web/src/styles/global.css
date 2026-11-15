@@ -750,6 +750,43 @@ kbd {
 .map-ctrl.compass {
   height: 44px;
 }
+.map-ctrl.on {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  color: var(--accent);
+}
+.map-basemap {
+  position: relative;
+}
+.map-basemap-menu {
+  position: absolute;
+  right: calc(100% + 8px);
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 128px;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+}
+.map-basemap-menu button {
+  text-align: left;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.map-basemap-menu button:hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text);
+}
+.map-basemap-menu button.on {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
 .compass-rose {
   display: grid;
   place-items: center;

@@ -1,10 +1,27 @@
 // AI disclosure: written with the assistance of an AI tool (large language model). See AI_USE.md.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Cartesian3, Math as CesiumMath, type Viewer } from "cesium";
+import type { Basemap } from "../types";
 
-/** Zoom ± and a north compass that follows the camera heading. */
-export default function MapControls({ getViewer }: { getViewer: () => Viewer | null }) {
+const BASEMAPS: { id: Basemap; label: string }[] = [
+  { id: "dark", label: "Dark" },
+  { id: "satellite", label: "Satellite" },
+  { id: "bluemarble", label: "Blue Marble" },
+];
+
+/** Zoom ±, north compass, and basemap picker — map-side, not in the left panel. */
+export default function MapControls({
+  getViewer,
+  basemap,
+  setBasemap,
+}: {
+  getViewer: () => Viewer | null;
+  basemap: Basemap;
+  setBasemap: (b: Basemap) => void;
+}) {
   const [heading, setHeading] = useState(0);
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let remove: (() => void) | undefined;
@@ -23,11 +40,26 @@ export default function MapControls({ getViewer }: { getViewer: () => Viewer | n
     return () => remove?.();
   }, [getViewer]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: PointerEvent) => {
+      if (!root.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
   const zoom = (dir: 1 | -1) => {
     const v = getViewer();
     if (!v) return;
     const h = Cartesian3.magnitude(v.camera.positionWC);
-    // Multiply height: in → closer, out → farther.
     const next = dir < 0 ? h * 0.55 : h * 1.8;
     const min = v.scene.screenSpaceCameraController.minimumZoomDistance;
     const max = v.scene.screenSpaceCameraController.maximumZoomDistance;
@@ -52,7 +84,7 @@ export default function MapControls({ getViewer }: { getViewer: () => Viewer | n
   };
 
   return (
-    <div className="map-controls" role="toolbar" aria-label="Map navigation">
+    <div className="map-controls" ref={root} role="toolbar" aria-label="Map navigation">
       <button type="button" className="map-ctrl glass" onClick={() => zoom(-1)} title="Zoom in" aria-label="Zoom in">
         +
       </button>
@@ -68,6 +100,42 @@ export default function MapControls({ getViewer }: { getViewer: () => Viewer | n
           </svg>
         </span>
       </button>
+
+      <div className="map-basemap">
+        <button
+          type="button"
+          className={`map-ctrl glass ${open ? "on" : ""}`}
+          onClick={() => setOpen((o) => !o)}
+          title="Basemap"
+          aria-label="Basemap"
+          aria-expanded={open}
+          aria-haspopup="listbox"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
+            <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.8" />
+            <path d="M3 12h18M12 3c2.8 3.2 2.8 14.8 0 18M12 3c-2.8 3.2-2.8 14.8 0 18" fill="none" stroke="currentColor" strokeWidth="1.5" />
+          </svg>
+        </button>
+        {open && (
+          <div className="map-basemap-menu glass" role="listbox" aria-label="Basemap">
+            {BASEMAPS.map((b) => (
+              <button
+                key={b.id}
+                type="button"
+                role="option"
+                aria-selected={basemap === b.id}
+                className={basemap === b.id ? "on" : ""}
+                onClick={() => {
+                  setBasemap(b.id);
+                  setOpen(false);
+                }}
+              >
+                {b.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -391,13 +391,11 @@ export default function App() {
         colorMode={colorMode}
         layer={layer}
         region={region}
-        basemap={basemap}
         regionTotals={regionTotals}
         setSensor={setSensor}
         setColorMode={setColorMode}
         setLayer={setLayer}
         setRegion={chooseRegion}
-        setBasemap={setBasemap}
       />
 
       {/* keyed by content so a new cell or detection starts at the top of the panel */}
@@ -433,7 +431,7 @@ export default function App() {
         max={legendMax}
         baseline={`${meta.calibration.baseline_years[0]}–${meta.calibration.baseline_years[1]}`}
       />
-      <MapControls getViewer={() => viewer.current} />
+      <MapControls getViewer={() => viewer.current} basemap={basemap} setBasemap={setBasemap} />
       {drawing && (
         <div className="draw-bar glass" role="toolbar" aria-label="Draw your area">
           <span>

@@ -1,7 +1,7 @@
 // AI disclosure: contains code written or modified with a large language model (Claude, Anthropic). See AI_USE.md.
 import { SENSOR_COLORS } from "../colors";
 import { fmt } from "../data";
-import type { Basemap, ColorMode, Layer, Meta, Sensor } from "../types";
+import type { ColorMode, Layer, Meta, Sensor } from "../types";
 
 interface Props {
   meta: Meta;
@@ -11,13 +11,11 @@ interface Props {
   colorMode: ColorMode;
   layer: Layer;
   region: string;
-  basemap: Basemap;
   regionTotals: Record<string, number>;
   setSensor: (s: Sensor) => void;
   setColorMode: (m: ColorMode) => void;
   setLayer: (l: Layer) => void;
   setRegion: (r: string) => void;
-  setBasemap: (b: Basemap) => void;
 }
 
 const COMPARE: { id: Sensor; label: string; color: string; help: string }[] = [
@@ -136,20 +134,6 @@ export default function ControlPanel(p: Props) {
             </svg>
             Detections
           </button>
-        </div>
-        <div className="sub-head">Basemap</div>
-        <div className="seg seg-3">
-          {(
-            [
-              ["dark", "Dark"],
-              ["satellite", "Satellite"],
-              ["bluemarble", "Blue Marble"],
-            ] as [Basemap, string][]
-          ).map(([id, label]) => (
-            <button key={id} className={p.basemap === id ? "on" : ""} onClick={() => p.setBasemap(id)}>
-              {label}
-            </button>
-          ))}
         </div>
       </section>
 
