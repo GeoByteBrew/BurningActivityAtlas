@@ -449,8 +449,9 @@ export default function App() {
     return (
       <div className="splash">
         <FlameMark size={48} />
-        <div className="loader" />
+        <span className="spin" aria-hidden />
         <p>Loading fire records…</p>
+        <p className="help small">World overview is ~25 km — first load can take a few seconds.</p>
       </div>
     );
 
@@ -572,8 +573,20 @@ export default function App() {
           </button>
         </div>
       )}
-      {layer === "points" && loadingPts && <div className="loading-pill glass">Loading detections…</div>}
-      {switching && <div className="loading-pill glass">Loading {datasets.find((d) => d.id === datasetId)?.name ?? "dataset"}…</div>}
+      {(switching || (layer === "points" && loadingPts)) && (
+        <div className="loading-pill glass" role="status" aria-live="polite">
+          <span className="spin" aria-hidden />
+          <span>
+            {switching
+              ? (() => {
+                  const d = datasets.find((x) => x.id === datasetId);
+                  const km = d?.cell_size_m ? `${d.cell_size_m / 1000} km` : null;
+                  return `Loading ${d?.name ?? "dataset"}${km ? ` · ${km}` : ""}…`;
+                })()
+              : "Loading detections…"}
+          </span>
+        </div>
+      )}
       {!switching && zoomHint && <div className="loading-pill glass">Zoom · {zoomHint}</div>}
 
       <Timeline meta={meta} range={range} playing={playing} setRange={setRange} togglePlay={() => setPlaying((p) => !p)} />
