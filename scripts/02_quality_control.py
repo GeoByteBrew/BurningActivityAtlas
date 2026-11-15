@@ -41,7 +41,9 @@ def ingest(cfg, src: dict, f, staging) -> int:
     sizes = cfg["grid"]["sizes_m"]
     fs = cfg["harmonization"]["factor_scale_m"]
     n = 0
-    tag = f"{f.stem}_{hashlib.md5(str(f).encode()).hexdigest()[:8]}"       # same file name in two folders
+    # short, unique fragment name: Windows limits a full path to 260 characters, and yearly archive
+    # files have long names (one per country) that may repeat across folders
+    tag = hashlib.md5(f"{src['source']}/{f}".encode()).hexdigest()[:12]
     for k, raw in enumerate(qc.iter_raw(f, cfg["run"]["chunk_rows"])):
         df = qc.standardize(raw, src, cfg["qc"])
         df = assign_cells(df, cfg["crs"]["equal_area"], sizes)
@@ -53,7 +55,7 @@ def ingest(cfg, src: dict, f, staging) -> int:
         for (t, y), g in df.groupby(["_tile", "_year"]):
             d = staging / t / str(y)
             d.mkdir(parents=True, exist_ok=True)
-            g.drop(columns=["_tile", "_year"]).to_parquet(d / f"{src['source']}__{tag}__{k}.parquet", index=False)
+            g.drop(columns=["_tile", "_year"]).to_parquet(d / f"{tag}_{k}.parquet", index=False)
         n += len(df)
     return n
 

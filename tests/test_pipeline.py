@@ -147,3 +147,29 @@ def test_download_boxes():
     assert len(world) == 12 * 5 and world[0] == ("W180S60", [-180, -60, -150, -30])
     assert len({t for t, _ in world}) == len(world)
     assert abs(sum((b[2] - b[0]) * (b[3] - b[1]) for _, b in world) - 360 * 144) < 1e-6
+
+
+def test_cell_bounds_defined_at_projection_edges(cfg):
+    """Coarse cells reaching past the pole or the antimeridian still get finite lon/lat bounds."""
+    crs = cfg["crs"]["equal_area"]
+    df = pd.DataFrame({"longitude": [0.0, 179.99, -179.99, 0.0, 10.0], "latitude": [-89.5, -16.8, 66.0, 83.95, 45.0]})
+    c5 = grid.assign_cells(df, crs, [5000])["cell_5km"]
+    for size in (5000, 50000, 100000):
+        ids = c5 if size == 5000 else grid.parent_ids(c5, 5000, size)
+        b = grid.cell_bounds(ids, size, crs)
+        assert np.isfinite(b.to_numpy()).all()
+        assert (b["s"] < b["n"]).all() and (b["w"] < b["e"]).all()
+        assert b["w"].min() >= -180 and b["e"].max() <= 180 and b["s"].min() >= -90 and b["n"].max() <= 90
+        assert ((b["w"] <= df["longitude"] + 1e-5) & (df["longitude"] <= b["e"] + 1e-5)).all()
+        assert ((b["s"] <= df["latitude"] + 1e-5) & (df["latitude"] <= b["n"] + 1e-5)).all()
+
+
+def test_global_run_flags_detections_outside_the_domain(cfg):
+    df = standardized(cfg)
+    world = {**cfg, "aoi": {**cfg["aoi"], "bbox_wgs84": [-180.0, -60.0, 180.0, 84.0]}}
+    df.loc[df.index[0], "latitude"] = -75.0                      # Antarctica
+    out = qc.add_qc_flags(df.drop(columns=[c for c in df if c.startswith(("f_", "q_")) or c == "region"]), world,
+                          aoi_region=lambda lon, lat: np.full(len(lon), None, dtype=object), clip=False)
+    # row 0 moved to Antarctica, row 3 has an invalid latitude (95°): both outside the domain
+    assert out["f_in_aoi"].tolist() == [False, True, True, False, True, True, True]
+    assert not out["f_base_ok"].iat[0]

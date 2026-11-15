@@ -113,7 +113,7 @@ def main():
                 if f.exists():
                     continue
                 text = firms.fetch_area_csv(cfg, key, sid, bbox, d, n)
-                f.write_text(text)
+                f.write_text(text, encoding="utf-8")
                 n_rows = max(0, len(text.strip().splitlines()) - 1)
                 manifest.append({"source": sid, "box": tag, "start": d, "n_days": n, "rows": n_rows, "file": f.name})
                 if k % 50 == 0:
