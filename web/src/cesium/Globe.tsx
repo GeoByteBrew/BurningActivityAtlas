@@ -116,62 +116,89 @@ function tightLonSpan(lons: number[]): [number, number] {
   return [xs[after + 1], xs[after]];
 }
 
-/** Bounding rectangle for a named region from its cells (preferred) or AOI outline. */
-function regionRect(data: Dataset, region: string): Rectangle {
+function percentile(sorted: number[], p: number): number {
+  if (!sorted.length) return 0;
+  const i = (sorted.length - 1) * p;
+  const lo = Math.floor(i);
+  const hi = Math.ceil(i);
+  if (lo === hi) return sorted[lo];
+  return sorted[lo] * (hi - i) + sorted[hi] * (i - lo);
+}
+
+/** Unwrap longitudes onto the continuous short arc [west → east] (east may be west+span > 180). */
+function unwrapLons(lons: number[], west: number, east: number): number[] {
+  if (east >= west) return lons.map((l) => l);
+  return lons.map((l) => (l < west ? l + 360 : l));
+}
+
+/**
+ * Frame the *core* of a region (p10–p90 of cell centres), ignoring overseas outliers
+ * (e.g. Western Europe includes Caribbean territories that otherwise keep the camera too far).
+ */
+function regionCoreRect(data: Dataset, region: string): Rectangle {
   if (region === "All") return Rectangle.fromDegrees(...data.meta.bbox);
 
   const c = data.cells;
   const rIdx = c.regions.indexOf(region);
+  const lons: number[] = [];
+  const lats: number[] = [];
   if (rIdx >= 0) {
-    const lons: number[] = [];
-    let s = 90;
-    let n = -90;
     for (let i = 0; i < c.id.length; i++) {
       if (c.region[i] !== rIdx) continue;
-      lons.push((c.w[i] + c.e[i]) / 2);
-      s = Math.min(s, c.s[i]);
-      n = Math.max(n, c.n[i]);
-    }
-    if (lons.length) {
-      const [w, e] = tightLonSpan(lons);
-      const padLat = Math.max(1.5, (n - s) * 0.12);
-      // Lon padding in degrees along the short arc (not across the dateline gap).
-      const span = e >= w ? e - w : 360 - (w - e);
-      const padLon = Math.min(8, Math.max(1.5, span * 0.1));
-      let west = w - padLon;
-      let east = e + padLon;
-      if (e >= w) {
-        west = Math.max(-180, west);
-        east = Math.min(180, east);
-      } else {
-        // keep antimeridian crossing; wrap padded edges into [-180,180]
-        west = ((((west + 180) % 360) + 360) % 360) - 180;
-        east = ((((east + 180) % 360) + 360) % 360) - 180;
-      }
-      return Rectangle.fromDegrees(west, Math.max(-90, s - padLat), east, Math.min(90, n + padLat));
+      const lon = (c.w[i] + c.e[i]) / 2;
+      const lat = (c.s[i] + c.n[i]) / 2;
+      // Skip cells that straddle the dateline for centre math; still covered by neighbours.
+      if (c.e[i] < c.w[i]) continue;
+      lons.push(lon);
+      lats.push(lat);
     }
   }
+  if (lons.length < 3) {
+    const f = data.aoi.features.find((x) => x.properties.name === region);
+    if (!f) return Rectangle.fromDegrees(...data.meta.bbox);
+    const visit = (node: unknown): void => {
+      if (Array.isArray(node) && typeof node[0] === "number") {
+        lons.push((node as number[])[0]);
+        lats.push((node as number[])[1]);
+      } else if (Array.isArray(node)) node.forEach(visit);
+    };
+    visit(f.geometry.coordinates);
+  }
+  if (!lons.length) return Rectangle.fromDegrees(...data.meta.bbox);
 
-  const f = data.aoi.features.find((x) => x.properties.name === region);
-  if (!f) return Rectangle.fromDegrees(...data.meta.bbox);
-  const lons: number[] = [];
-  let s = 90;
-  let n = -90;
-  const visit = (node: unknown): void => {
-    if (Array.isArray(node) && typeof node[0] === "number") {
-      const [x, y] = node as number[];
-      lons.push(x);
-      s = Math.min(s, y);
-      n = Math.max(n, y);
-    } else if (Array.isArray(node)) node.forEach(visit);
-  };
-  visit(f.geometry.coordinates);
-  const [w, e] = tightLonSpan(lons);
-  return Rectangle.fromDegrees(w, s, e, n);
+  const [arcW, arcE] = tightLonSpan(lons);
+  const unwrapped = unwrapLons(lons, arcW, arcE).sort((a, b) => a - b);
+  const ys = [...lats].sort((a, b) => a - b);
+  // Core box: drop the farthest 10% each side (overseas departments, sparse islets).
+  let west = percentile(unwrapped, 0.1);
+  let east = percentile(unwrapped, 0.9);
+  let south = percentile(ys, 0.1);
+  let north = percentile(ys, 0.9);
+  // Minimum span so tiny island groups still get a readable frame.
+  const minLon = 6;
+  const minLat = 4;
+  if (east - west < minLon) {
+    const m = (east + west) / 2;
+    west = m - minLon / 2;
+    east = m + minLon / 2;
+  }
+  if (north - south < minLat) {
+    const m = (north + south) / 2;
+    south = m - minLat / 2;
+    north = m + minLat / 2;
+  }
+  const padLon = Math.max(0.8, (east - west) * 0.08);
+  const padLat = Math.max(0.8, (north - south) * 0.08);
+  west -= padLon;
+  east += padLon;
+  south = Math.max(-85, south - padLat);
+  north = Math.min(85, north + padLat);
+  // Re-wrap into [-180, 180]; east < west ⇒ crosses antimeridian for Cesium.
+  const wrap = (x: number) => ((((x + 180) % 360) + 360) % 360) - 180;
+  return Rectangle.fromDegrees(wrap(west), south, wrap(east), north);
 }
 
 function flyToRect(viewer: Viewer, rect: Rectangle, duration: number) {
-  // Destination-as-Rectangle frames antimeridian regions correctly; keep a top-down view.
   const worldish = rect.width > Math.PI * 0.95 || rect.height > Math.PI / 2;
   if (worldish) {
     const c0 = Rectangle.center(rect);
@@ -182,11 +209,17 @@ function flyToRect(viewer: Viewer, rect: Rectangle, duration: number) {
     });
     return;
   }
+  // Top-down onto the core rectangle (closer than the old oblique sphere fit).
   viewer.camera.flyTo({
     destination: rect,
     orientation: { heading: 0, pitch: CesiumMath.toRadians(-90), roll: 0 },
     duration,
   });
+}
+
+/** Prefer the core cell bbox; used for region changes and initial view. */
+function regionRect(data: Dataset, region: string): Rectangle {
+  return regionCoreRect(data, region);
 }
 
 export default function Globe(props: Props) {
@@ -492,23 +525,33 @@ export default function Globe(props: Props) {
           : fireRgb(0.08 + 0.92 * t);
       // Quiet anomaly cells stay more transparent so active fire stands out.
       const alpha = anomaly && val === 0 ? 0.45 : 0.88;
-      const pad = (c.e[i] - c.w[i]) * 0.04;
       const padY = (c.n[i] - c.s[i]) * 0.04;
-      instances.push(
-        new GeometryInstance({
-          geometry: new RectangleGeometry({
-            rectangle: Rectangle.fromDegrees(c.w[i] + pad, c.s[i] + padY, c.e[i] - pad, c.n[i] - padY),
-            height: cellH,
-            vertexFormat: PerInstanceColorAppearance.VERTEX_FORMAT,
+      const south = c.s[i] + padY;
+      const north = c.n[i] - padY;
+      const colorAttr = ColorGeometryInstanceAttribute.fromColor(new Color(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255, alpha));
+      // Cells that cross the antimeridian must be split; a single east<west rectangle draws a whole world strip.
+      const parts: [number, number][] =
+        c.e[i] >= c.w[i]
+          ? [[c.w[i], c.e[i]]]
+          : [
+              [c.w[i], 180],
+              [-180, c.e[i]],
+            ];
+      for (const [west, east] of parts) {
+        const pad = Math.max(0, (east - west) * 0.04);
+        if (east - west <= pad * 2 + 1e-6) continue;
+        instances.push(
+          new GeometryInstance({
+            geometry: new RectangleGeometry({
+              rectangle: Rectangle.fromDegrees(west + pad, south, east - pad, north),
+              height: cellH,
+              vertexFormat: PerInstanceColorAppearance.VERTEX_FORMAT,
+            }),
+            attributes: { color: colorAttr },
+            id: { kind: "cell", i },
           }),
-          attributes: {
-            color: ColorGeometryInstanceAttribute.fromColor(
-              new Color(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255, alpha),
-            ),
-          },
-          id: { kind: "cell", i },
-        }),
-      );
+        );
+      }
     }
     const prim = scene.primitives.add(
       new Primitive({
