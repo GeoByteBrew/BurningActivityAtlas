@@ -231,12 +231,13 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [datasetId, datasets]);
 
-  // Guard: 25 km world grid is only for Country drill-down — never for zoom / Region / All.
+  // Guard: 25 km world grid only on desktop Country drill-down.
+  // Mobile Lite never keeps world_25km (filter + fly on 50 km instead).
   useEffect(() => {
-    if (datasetId !== WORLD_25 || country !== "All") return;
+    if (datasetId !== WORLD_25) return;
     if (!datasets.some((d) => d.id === WORLD_50)) return;
-    pickDataset(WORLD_50, "place");
-  }, [datasetId, country, datasets, pickDataset]);
+    if (mobile || country === "All") pickDataset(WORLD_50, "place");
+  }, [datasetId, country, datasets, pickDataset, mobile]);
 
   const meta = data?.meta;
   const y0 = meta ? yearOf(meta, range.start) : 0;
@@ -380,7 +381,13 @@ export default function App() {
     setCountry(c);
     setCell(null);
     if (!isWorldGrid(datasetIdRef.current)) return;
-    // Country drill-down loads 25 km; clearing country returns to 50 km.
+    // Mobile Lite: stay on 50 km (country only filters + flies). Desktop loads 25 km.
+    if (mobile) {
+      if (datasetIdRef.current !== WORLD_50 && datasets.some((d) => d.id === WORLD_50)) {
+        pickDataset(WORLD_50, "place");
+      }
+      return;
+    }
     const want = c !== "All" && datasets.some((d) => d.id === WORLD_25) ? WORLD_25 : WORLD_50;
     pickDataset(want, "place");
   };
@@ -511,6 +518,7 @@ export default function App() {
         datasets={datasets}
         datasetId={datasetId ?? ""}
         onDataset={(id) => pickDataset(id, "manual")}
+        mobileLite={mobile}
       >
         <DownloadMenu
           data={data}
@@ -532,6 +540,7 @@ export default function App() {
         region={region}
         country={country}
         regionTotals={regionTotals}
+        mobileLite={mobile}
         setSensor={setSensor}
         setColorMode={setColorMode}
         setLayer={chooseLayer}

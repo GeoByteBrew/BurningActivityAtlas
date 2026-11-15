@@ -29,11 +29,14 @@ export default function Header({
   datasets,
   datasetId,
   onDataset,
+  mobileLite,
   children,
 }: {
   datasets?: DatasetEntry[];
   datasetId?: string;
   onDataset?: (id: string) => void;
+  /** Phone: Country stays on 50 km; no automatic 25 km swap. */
+  mobileLite?: boolean;
   meta: Meta;
   onAbout: () => void;
   onMethod: () => void;
@@ -62,7 +65,11 @@ export default function Header({
         {datasets && datasets.length > 1 && onDataset && (
           <label
             className="dataset-pick"
-            title="World / Region use 50 km. Pick a Country for 25 km. Named windows (Iberia, …) are 5 km with detections."
+            title={
+              mobileLite
+                ? "Mobile Lite: World stays on 50 km. Named windows (Iberia, …) are 5 km with detections."
+                : "World / Region use 50 km. Pick a Country for 25 km. Named windows (Iberia, …) are 5 km with detections."
+            }
           >
             <span>View</span>
             <select

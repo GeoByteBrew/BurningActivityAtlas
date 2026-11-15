@@ -12,6 +12,8 @@ interface Props {
   region: string;
   country: string;
   regionTotals: Record<string, number>;
+  /** Phone: skip the heavy 25 km world grid; country only filters the 50 km view. */
+  mobileLite?: boolean;
   setSensor: (s: Sensor) => void;
   setColorMode: (m: ColorMode) => void;
   setLayer: (l: Layer) => void;
@@ -210,11 +212,19 @@ export default function ControlPanel(p: Props) {
               allLabel="All countries in region"
               onPick={p.setCountry}
             />
-            <p className="help small">Country selection loads the 25 km grid for sharper local detail.</p>
+            <p className="help small">
+              {p.mobileLite
+                ? "On phones, Country keeps the 50 km grid (filters the map only) so browsing stays smooth."
+                : "Country selection loads the 25 km grid for sharper local detail."}
+            </p>
           </>
         )}
         {!showCountry && p.meta.cell_size_m >= 25_000 && (
-          <p className="help small">World and Region use the 50 km grid for smoother browsing.</p>
+          <p className="help small">
+            {p.mobileLite
+              ? "Mobile Lite: World and Region stay on 50 km for smoother browsing."
+              : "World and Region use the 50 km grid for smoother browsing."}
+          </p>
         )}
       </section>
 
@@ -251,8 +261,9 @@ export default function ControlPanel(p: Props) {
         </div>
         {noPoints && (
           <p className="help small">
-            World and Region stay on the 50 km grid; picking a Country loads 25 km. Single detections need a 5 km View
-            (Iberia, California, Central Africa, South-east Australia) — click Detections or pick it under View.
+            {p.mobileLite
+              ? "Mobile Lite stays on the 50 km grid. Single detections need a 5 km View (Iberia, California, …) — click Detections or pick it under View."
+              : "World and Region stay on the 50 km grid; picking a Country loads 25 km. Single detections need a 5 km View (Iberia, California, Central Africa, South-east Australia) — click Detections or pick it under View."}
           </p>
         )}
       </section>
