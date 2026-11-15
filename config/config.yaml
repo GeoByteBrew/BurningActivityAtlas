@@ -151,8 +151,8 @@ harmonization:
 web:
   # One dataset per entry under web/public/data/<id>/, listed in datasets.json.
   # overview: coarse cells over the whole domain. details: 5 km + detections inside a bbox.
-  # Export also builds a 10 km "mid" dataset per detail window for zoom LOD (25 → 10 → 5 km).
-  overview: {id: world, name: "World", cell_m: 25000, region_level: super}
+  # Export also builds world 25 km + regional 10 km mids for zoom LOD (50 → 25 → 10 → 5 km).
+  overview: {id: world, name: "World", cell_m: 50000, region_level: super}
   details:
     - {id: iberia, name: "Iberian Peninsula", bbox: [-10.0, 35.8, 4.5, 44.0]}
     - {id: california, name: "California", bbox: [-125.0, 32.0, -113.5, 42.5]}

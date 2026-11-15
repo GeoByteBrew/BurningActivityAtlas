@@ -62,15 +62,21 @@ export default function Header({
         {datasets && datasets.length > 1 && onDataset && (
           <label
             className="dataset-pick"
-            title="World at 25 km. Zoom into a named window for 10 km then 5 km (or pick the window here)."
+            title="World at 50 km. Zoom for 25 km, then a named window for 10 km and 5 km (or pick the window here)."
           >
             <span>View</span>
             <select
-              value={(datasetId ?? "").endsWith("_10km") ? (datasetId ?? "").replace(/_10km$/, "") : datasetId}
+              value={
+                (datasetId ?? "").endsWith("_10km")
+                  ? (datasetId ?? "").replace(/_10km$/, "")
+                  : (datasetId ?? "").endsWith("_25km")
+                    ? (datasetId ?? "").replace(/_25km$/, "")
+                    : datasetId
+              }
               onChange={(e) => onDataset(e.target.value)}
             >
               {datasets
-                .filter((d) => d.kind !== "mid")
+                .filter((d) => d.kind !== "mid" && d.kind !== "coarse")
                 .map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name} · {d.cell_size_m / 1000} km

@@ -292,12 +292,20 @@ def export_dataset(cfg, ds: dict, out, overview: bool) -> dict | None:
 
 
 def web_todo(wc: dict, fs: int) -> list[tuple[dict, bool]]:
-    """overview → 10 km mid windows (zoom LOD) → 5 km detail windows."""
+    """overview (e.g. 50 km) → world 25 km → regional 10 km mid → 5 km detail."""
     todo: list[tuple[dict, bool]] = []
     if wc.get("overview"):
         o = dict(wc["overview"])
         o.setdefault("kind", "overview")
         todo.append((o, True))
+        # World zoom step between overview and regional windows (skip if overview is already ≤25 km)
+        if int(o.get("cell_m", fs)) > 25000:
+            coarse = dict(o)
+            coarse["id"] = f"{o['id']}_25km"
+            coarse["cell_m"] = 25000
+            coarse["kind"] = "coarse"
+            coarse.setdefault("name", o.get("name", o["id"]))
+            todo.append((coarse, True))
     details = list(wc.get("details") or [])
     for d in details:
         mid = dict(d)

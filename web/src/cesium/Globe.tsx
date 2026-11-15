@@ -560,7 +560,7 @@ export default function Globe(props: Props) {
       return;
     }
 
-    // Show the map spinner for one frame before the heavy instance loop (world ~25 km).
+    // Show the map spinner for one frame before the heavy instance loop (world 25/50 km).
     paint(true);
     let stop: (() => void) | undefined;
     let cancelled = false;

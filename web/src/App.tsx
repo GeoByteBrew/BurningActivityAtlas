@@ -36,9 +36,10 @@ const SEEN_KEY = "baa-about-seen";
 /** Phone layout: which panel the bottom sheet shows (null = map only). */
 type Sheet = "controls" | "insights" | null;
 const STORY = { region: "Portugal", year: 2025, month: 7 };
-/** View-span bands (degrees): wider → coarser dataset. */
-const SPAN_WORLD = 28; // above → World 25 km
-const SPAN_FINE = 10; // below → regional 5 km; between → 10 km mid
+/** View-span bands (degrees): wider → coarser dataset. 50 → 25 → 10 → 5 km. */
+const SPAN_COARSE = 55; // above → World 50 km; at/below → World 25 km
+const SPAN_WORLD = 28; // at/below → regional 10 km mid (inside a window)
+const SPAN_FINE = 10; // at/below → regional 5 km detail
 
 function sameWindow(a: DatasetEntry, b: DatasetEntry) {
   return a.bbox.every((v, i) => v === b.bbox[i]);
@@ -222,12 +223,13 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [datasetId, datasets]);
 
-  // Zoom LOD inside known windows only: World 25 km → mid 10 km → detail 5 km.
+  // Zoom LOD: World 50 km → World 25 km → regional 10 km → detail 5 km.
   // Uses the look-at point + visible span (not camera altitude), and does not fly the camera.
   useEffect(() => {
     const v = viewer.current;
     if (!v || datasets.length < 2 || drawing) return;
     const overview = datasets.find((d) => d.kind === "overview") ?? datasets.find((d) => d.id === "world");
+    const coarse = datasets.find((d) => d.kind === "coarse");
     const details = datasets.filter((d) => d.kind === "detail");
     const mids = datasets.filter((d) => d.kind === "mid");
     if (!overview || !details.length) return;
@@ -246,6 +248,7 @@ export default function App() {
           : mids.find((m) => inBbox(lon, lat, m.bbox));
 
         let want = overview.id;
+        if (span <= SPAN_COARSE && coarse) want = coarse.id;
         if (detail || mid) {
           if (span <= SPAN_FINE && detail) want = detail.id;
           else if (span <= SPAN_WORLD) want = (mid ?? detail)!.id;
