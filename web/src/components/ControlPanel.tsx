@@ -229,8 +229,11 @@ export default function ControlPanel(p: Props) {
           </button>
           <button
             className={p.layer === "points" ? "on" : ""}
-            disabled={noPoints}
-            title={noPoints ? "Single detections are available in the regional views (switch with View, top right)" : undefined}
+            title={
+              noPoints
+                ? "World grids have no single detections — click to open a regional 5 km view that does"
+                : undefined
+            }
             onClick={() => p.setLayer("points")}
           >
             <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
@@ -242,6 +245,12 @@ export default function ControlPanel(p: Props) {
             Detections
           </button>
         </div>
+        {noPoints && (
+          <p className="help small">
+            Single detections ship only in regional Views (Iberia, California, Central Africa, South-east Australia). Click
+            Detections to open one, or pick it under View.
+          </p>
+        )}
       </section>
 
       <section className="data-block">

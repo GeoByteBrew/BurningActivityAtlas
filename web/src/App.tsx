@@ -122,6 +122,8 @@ export default function App() {
   const switchingRef = useRef(switching);
   const regionRef = useRef(region);
   const countryRef = useRef(country);
+  /** After switching to a detail window, open this map layer once data is ready. */
+  const pendingLayer = useRef<Layer | null>(null);
   datasetIdRef.current = datasetId;
   switchingRef.current = switching;
   regionRef.current = region;
@@ -225,7 +227,10 @@ export default function App() {
         }
         setRegion(nextR);
         setCountry(nextC);
-        if (d.meta.points === false) setLayer("grid");
+        const want = pendingLayer.current;
+        pendingLayer.current = null;
+        if (want && d.meta.points !== false) setLayer(want);
+        else if (d.meta.points === false) setLayer("grid");
         setData((prev) => {
           // keep the selected period when both datasets cover the same years
           if (!prev || prev.meta.years[0] !== d.meta.years[0] || prev.meta.years.length !== d.meta.years.length)
@@ -426,6 +431,33 @@ export default function App() {
     setCountry(c);
     setCell(null);
   };
+  /** World grids ship no points — jump into a detail window under the look-at when possible. */
+  const chooseLayer = (l: Layer) => {
+    if (l !== "points" || meta?.points !== false) {
+      setLayer(l);
+      return;
+    }
+    const v = viewer.current;
+    const details = datasets.filter((d) => d.kind === "detail");
+    let detail = details[0];
+    if (v) {
+      const [lon, lat] = lookAtLonLat(v);
+      detail = details.find((d) => inBbox(lon, lat, d.bbox)) ?? detail;
+    }
+    if (!detail) {
+      setZoomHint("Detections need a regional View (Iberia, California, …)");
+      window.setTimeout(() => setZoomHint(null), 3200);
+      return;
+    }
+    if (detail.id === datasetIdRef.current) {
+      setLayer("points");
+      return;
+    }
+    pendingLayer.current = "points";
+    setZoomHint(`Opening detections · ${detail.name}`);
+    window.setTimeout(() => setZoomHint(null), 2800);
+    pickDataset(detail.id, "manual");
+  };
   const insightPlace = placeKey(region, country);
 
   const storyReady = !!meta && meta.harmonized && meta.regions.includes(STORY.region) && meta.years.includes(STORY.year);
@@ -549,7 +581,7 @@ export default function App() {
         regionTotals={regionTotals}
         setSensor={setSensor}
         setColorMode={setColorMode}
-        setLayer={setLayer}
+        setLayer={chooseLayer}
         setRegion={chooseRegion}
         setCountry={chooseCountry}
       />
