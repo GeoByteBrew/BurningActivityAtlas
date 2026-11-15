@@ -1,6 +1,6 @@
 // AI disclosure: contains code written or modified with a large language model (Claude, Anthropic). See AI_USE.md.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Math as CesiumMath, type Viewer } from "cesium";
+import { Cartesian2, Cartographic, Math as CesiumMath, type Viewer } from "cesium";
 import Globe, { type Hover } from "./cesium/Globe";
 import type { Poly } from "./aoi";
 import AboutModal from "./components/AboutModal";
@@ -36,12 +36,34 @@ const SEEN_KEY = "baa-about-seen";
 /** Phone layout: which panel the bottom sheet shows (null = map only). */
 type Sheet = "controls" | "insights" | null;
 const STORY = { region: "Portugal", year: 2025, month: 7 };
-/** Camera height bands for zoom LOD (metres above ellipsoid). */
-const ZOOM_OUT_H = 5.0e6; // above → World 25 km
-const ZOOM_FINE_H = 9.0e5; // below → regional 5 km; between FINE and OUT → 10 km mid
+/** View-span bands (degrees): wider → coarser dataset. */
+const SPAN_WORLD = 28; // above → World 25 km
+const SPAN_FINE = 10; // below → regional 5 km; between → 10 km mid
 
 function sameWindow(a: DatasetEntry, b: DatasetEntry) {
   return a.bbox.every((v, i) => v === b.bbox[i]);
+}
+
+function inBbox(lon: number, lat: number, b: DatasetEntry["bbox"]) {
+  return lon >= b[0] && lon <= b[2] && lat >= b[1] && lat <= b[3];
+}
+
+/** Ground point under the screen centre (what the user is looking at). */
+function lookAtLonLat(v: Viewer): [number, number] {
+  const canvas = v.scene.canvas;
+  const picked = v.camera.pickEllipsoid(new Cartesian2(canvas.clientWidth / 2, canvas.clientHeight / 2), v.scene.globe.ellipsoid);
+  const c = picked ? Cartographic.fromCartesian(picked) : v.camera.positionCartographic;
+  return [CesiumMath.toDegrees(c.longitude), CesiumMath.toDegrees(c.latitude)];
+}
+
+/** Approximate visible span in degrees (max of width/height). */
+function viewSpanDeg(v: Viewer): number {
+  const rect = v.camera.computeViewRectangle(v.scene.globe.ellipsoid);
+  if (!rect) return 180;
+  let w = CesiumMath.toDegrees(rect.east - rect.west);
+  if (w < 0) w += 360;
+  const h = Math.abs(CesiumMath.toDegrees(rect.north - rect.south));
+  return Math.max(w, h);
 }
 
 /** Move a range by whole years (or by one month when a single month is selected), wrapping around. */
@@ -89,17 +111,23 @@ export default function App() {
   const viewer = useRef<Viewer | null>(null);
   /** Ignore auto zoom↔dataset switches until this time (manual View pick or just after a switch). */
   const zoomLockUntil = useRef(0);
+  const skipNextFit = useRef(false);
   const datasetIdRef = useRef(datasetId);
+  const switchingRef = useRef(switching);
   datasetIdRef.current = datasetId;
+  switchingRef.current = switching;
 
   const pickDataset = useCallback((id: string, reason: "manual" | "zoom" = "manual") => {
     if (id === datasetIdRef.current) return;
-    zoomLockUntil.current = Date.now() + (reason === "manual" ? 10000 : 2800);
+    zoomLockUntil.current = Date.now() + (reason === "manual" ? 8000 : 1500);
     if (reason === "zoom") {
+      skipNextFit.current = true; // keep the user's camera; only swap the grid
       const name = datasets.find((d) => d.id === id)?.name ?? id;
       const km = (datasets.find((d) => d.id === id)?.cell_size_m ?? 0) / 1000;
       setZoomHint(km ? `${name} · ${km} km` : name);
-      window.setTimeout(() => setZoomHint(null), 3200);
+      window.setTimeout(() => setZoomHint(null), 2800);
+    } else {
+      skipNextFit.current = false;
     }
     setDatasetId(id);
   }, [datasets]);
@@ -194,48 +222,47 @@ export default function App() {
   }, [datasetId, datasets]);
 
   // Zoom LOD inside known windows only: World 25 km → mid 10 km → detail 5 km.
+  // Uses the look-at point + visible span (not camera altitude), and does not fly the camera.
   useEffect(() => {
     const v = viewer.current;
-    if (!v || datasets.length < 2 || switching || drawing) return;
+    if (!v || datasets.length < 2 || drawing) return;
     const overview = datasets.find((d) => d.kind === "overview") ?? datasets.find((d) => d.id === "world");
     const details = datasets.filter((d) => d.kind === "detail");
     const mids = datasets.filter((d) => d.kind === "mid");
     if (!overview || !details.length) return;
 
     let timer = 0;
-    const inBbox = (lon: number, lat: number, b: DatasetEntry["bbox"]) =>
-      lon >= b[0] && lon <= b[2] && lat >= b[1] && lat <= b[3];
-
     const check = () => {
       window.clearTimeout(timer);
       timer = window.setTimeout(() => {
-        if (Date.now() < zoomLockUntil.current || switching) return;
-        const cur = datasetIdRef.current;
-        if (!cur) return;
-        const c = v.camera.positionCartographic;
-        const lon = CesiumMath.toDegrees(c.longitude);
-        const lat = CesiumMath.toDegrees(c.latitude);
-        const h = c.height;
+        if (Date.now() < zoomLockUntil.current || switchingRef.current) return;
+        const [lon, lat] = lookAtLonLat(v);
+        const span = viewSpanDeg(v);
 
         const detail = details.find((d) => inBbox(lon, lat, d.bbox));
-        const mid = detail ? mids.find((m) => sameWindow(m, detail)) : mids.find((m) => inBbox(lon, lat, m.bbox));
+        const mid = detail
+          ? mids.find((m) => sameWindow(m, detail))
+          : mids.find((m) => inBbox(lon, lat, m.bbox));
 
         let want = overview.id;
         if (detail || mid) {
-          if (h < ZOOM_FINE_H && detail) want = detail.id; // 5 km
-          else if (h < ZOOM_OUT_H) want = (mid ?? detail)!.id; // 10 km mid (or 5 km if mid missing)
+          if (span <= SPAN_FINE && detail) want = detail.id;
+          else if (span <= SPAN_WORLD) want = (mid ?? detail)!.id;
         }
 
         pickDataset(want, "zoom");
-      }, 350);
+      }, 200);
     };
 
-    const remove = v.camera.changed.addEventListener(check);
+    const remChanged = v.camera.changed.addEventListener(check);
+    const remEnd = v.camera.moveEnd.addEventListener(check);
+    check();
     return () => {
-      remove();
+      remChanged();
+      remEnd();
       window.clearTimeout(timer);
     };
-  }, [datasets, switching, drawing, pickDataset, data, viewerReady]);
+  }, [datasets, drawing, pickDataset, viewerReady]);
 
   const meta = data?.meta;
   const y0 = meta ? yearOf(meta, range.start) : 0;
@@ -427,6 +454,7 @@ export default function App() {
         onSelectCell={setCell}
         onSelectPoint={setPoint}
         onHover={setHover}
+        skipNextFitRef={skipNextFit}
         onReady={(v) => {
           viewer.current = v;
           setViewerReady((n) => n + 1);

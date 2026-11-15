@@ -1,5 +1,5 @@
 // AI disclosure: contains code written or modified with a large language model (Claude, Anthropic). See AI_USE.md.
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type MutableRefObject } from "react";
 import {
   ArcType,
   BoundingSphere,
@@ -62,6 +62,8 @@ interface Props {
   onSelectPoint: (p: PickedPoint | null) => void;
   onHover: (h: Hover | null) => void;
   onReady?: (v: Viewer | null) => void;
+  /** When true, the next data/region change does not fly the camera (zoom LOD dataset swaps). */
+  skipNextFitRef?: MutableRefObject<boolean>;
 }
 
 const SENSOR_LABEL: Record<Sensor, string> = {
@@ -493,8 +495,12 @@ export default function Globe(props: Props) {
       firstFly.current = false;
       return;
     }
+    if (props.skipNextFitRef?.current) {
+      props.skipNextFitRef.current = false;
+      return;
+    }
     flyToRect(v, regionRect(data, region), 1.6);
-  }, [data, region]);
+  }, [data, region, props.skipNextFitRef]);
 
   // ---- flat 2D coloured cells (choropleth) — no extruded columns
   useEffect(() => {
