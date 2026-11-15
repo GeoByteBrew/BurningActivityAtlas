@@ -3,17 +3,33 @@ import type { Cells, CellsMonthly, Dataset, DatasetEntry, GeoJSON, Meta, Points,
 
 const BASE = `${import.meta.env.BASE_URL}data`;
 
+/** True when a body looks like JSON (Vite SPA fallback returns 200 HTML for missing /data/*.json). */
+function looksJson(text: string) {
+  const c = text.trimStart()[0];
+  return c === "{" || c === "[";
+}
+
 /** Load JSON; if the plain file is missing, try the gzipped twin (large world / regional tables). */
 async function getJson<T>(name: string): Promise<T> {
   const r = await fetch(`${BASE}/${name}`);
-  if (r.ok) return r.json() as Promise<T>;
-  if (r.status === 404 && name.endsWith(".json")) {
-    const gz = await fetch(`${BASE}/${name}.gz`);
-    if (!gz.ok || !gz.body) throw new Error(`${name}: HTTP ${r.status}`);
-    const text = await new Response(gz.body.pipeThrough(new DecompressionStream("gzip"))).text();
-    return JSON.parse(text) as T;
+  if (r.ok) {
+    const text = await r.text();
+    if (looksJson(text)) return JSON.parse(text) as T;
+  } else if (r.status !== 404) {
+    throw new Error(`${name}: HTTP ${r.status}`);
   }
-  throw new Error(`${name}: HTTP ${r.status}`);
+  if (!name.endsWith(".json")) throw new Error(`${name}: HTTP ${r.status}`);
+  const gz = await fetch(`${BASE}/${name}.gz`);
+  if (!gz.ok || !gz.body) throw new Error(`${name}: HTTP ${r.ok ? 404 : r.status}`);
+  // Vite may already decode Content-Encoding: gzip; Vercel often serves raw bytes.
+  const buf = await gz.arrayBuffer();
+  const head = new Uint8Array(buf, 0, Math.min(1, buf.byteLength))[0];
+  const text =
+    head === 0x1f
+      ? await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream("gzip"))).text()
+      : new TextDecoder().decode(buf);
+  if (!looksJson(text)) throw new Error(`${name}: not JSON`);
+  return JSON.parse(text) as T;
 }
 
 /** Datasets available on this deployment; a flat data/ folder (older exports) counts as one. */
