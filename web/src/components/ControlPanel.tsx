@@ -6,8 +6,6 @@ import type { ColorMode, Layer, Meta, Sensor } from "../types";
 
 interface Props {
   meta: Meta;
-  /** true when the dataset ships the cell-level MODIS-converted layer */
-  hasConv?: boolean;
   sensor: Sensor;
   colorMode: ColorMode;
   layer: Layer;
@@ -22,9 +20,12 @@ interface Props {
 const COMPARE: { id: Sensor; label: string; color: string; help: string }[] = [
   { id: "modis", label: "MODIS", color: SENSOR_COLORS.modis, help: "Terra + Aqua, 1 km pixels. Long record (2000–) but misses small fires." },
   { id: "viirs", label: "VIIRS", color: SENSOR_COLORS.viirs, help: "Suomi NPP, 375 m pixels. Sees several times more fire pixels than MODIS over the same ground." },
-  { id: "diff", label: "Raw gap", color: "#9aa4b5", help: "Raw sensor difference: VIIRS − MODIS per cell, before any harmonization. Cyan: VIIRS sees more · Orange: MODIS sees more." },
-  { id: "convdiff", label: "After conv.", color: SENSOR_COLORS.conv, help: "MODIS converted − real VIIRS per cell, VIIRS years only: what the conversion leaves behind. Cyan: converted MODIS is short (fires only VIIRS saw) · Orange: it overshoots." },
 ];
+
+const DIAG: Partial<Record<Sensor, string>> = {
+  diff: "Map shows the raw sensor gap (VIIRS − MODIS). Open Method for details, or pick Harmonized / MODIS / VIIRS above.",
+  convdiff: "Map shows the residual after conversion (converted MODIS − VIIRS). Open Method for details, or pick Harmonized / MODIS / VIIRS above.",
+};
 
 function CoverageBar({ meta, platform }: { meta: Meta; platform: string }) {
   const c = meta.coverage[platform];
@@ -45,8 +46,8 @@ function CoverageBar({ meta, platform }: { meta: Meta; platform: string }) {
 
 export default function ControlPanel(p: Props) {
   const harm = p.sensor === "harm";
-  const compare = COMPARE.filter((s) => s.id !== "convdiff" || p.hasConv);
-  const compareHelp = compare.find((s) => s.id === p.sensor)?.help;
+  const compareHelp = COMPARE.find((s) => s.id === p.sensor)?.help;
+  const diagHelp = DIAG[p.sensor];
   const cell = `${p.meta.cell_size_m / 1000} km`;
   const noPoints = p.meta.points === false;
   const onPoints = p.layer === "points";
@@ -104,8 +105,8 @@ export default function ControlPanel(p: Props) {
         )}
 
         <div className="sub-head">Compare sensors</div>
-        <div className={`seg ${compare.length === 4 ? "seg-4" : "seg-3"}`}>
-          {compare.map((s) => (
+        <div className="seg">
+          {COMPARE.map((s) => (
             <button key={s.id} className={p.sensor === s.id ? "on" : ""} title={s.help} onClick={() => p.setSensor(s.id)}>
               <i style={{ background: s.color }} />
               {s.label}
@@ -113,6 +114,7 @@ export default function ControlPanel(p: Props) {
           ))}
         </div>
         {compareHelp && <p className="help">{compareHelp}</p>}
+        {diagHelp && <p className="help">{diagHelp}</p>}
       </section>
 
       <section>

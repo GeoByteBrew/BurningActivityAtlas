@@ -386,7 +386,6 @@ export default function App() {
 
       <ControlPanel
         meta={meta}
-        hasConv={!!data.monthly.conv}
         sensor={sensor}
         colorMode={colorMode}
         layer={layer}
@@ -496,7 +495,19 @@ export default function App() {
           }}
         />
       )}
-      {method && <MethodPanel data={data} region={region} onClose={() => setMethod(false)} />}
+      {method && (
+        <MethodPanel
+          data={data}
+          region={region}
+          hasConv={!!data.monthly.conv}
+          onClose={() => setMethod(false)}
+          onShowMap={(s) => {
+            setSensor(s);
+            setLayer("grid");
+            setMethod(false);
+          }}
+        />
+      )}
     </div>
   );
 }

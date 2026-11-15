@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { SENSOR_COLORS } from "../colors";
 import { byYear, fmt, regionMonthly } from "../data";
-import type { Dataset, Row } from "../types";
+import type { Dataset, Row, Sensor } from "../types";
 import { AnnualChart, LegendDot } from "./charts";
 
 const CONFIG = "terra+aqua";
@@ -77,7 +77,20 @@ function RatioChart({ rows, calEnd, testStart }: { rows: Row[]; calEnd: number; 
   );
 }
 
-export default function MethodPanel({ data, region, onClose }: { data: Dataset; region: string; onClose: () => void }) {
+export default function MethodPanel({
+  data,
+  region,
+  hasConv,
+  onClose,
+  onShowMap,
+}: {
+  data: Dataset;
+  region: string;
+  hasConv?: boolean;
+  onClose: () => void;
+  /** Open a diagnostic map layer (raw gap / residual) and close this panel. */
+  onShowMap?: (sensor: Extract<Sensor, "diff" | "convdiff">) => void;
+}) {
   const { meta, validation: v, series } = data;
   const [reg, setReg] = useState(region);
 
@@ -156,6 +169,35 @@ export default function MethodPanel({ data, region, onClose }: { data: Dataset; 
             <small>converted ÷ VIIRS</small>
           </div>
         </div>
+
+        {onShowMap && (
+          <section>
+            <h3>See it on the map</h3>
+            <p className="help" style={{ marginTop: 0 }}>
+              Diagnostic grid layers: where the sensors diverge before and after conversion. Cyan: left side is short · Orange: left
+              side is high.
+            </p>
+            <div className="seg">
+              <button type="button" title="VIIRS − MODIS per cell, before harmonization" onClick={() => onShowMap("diff")}>
+                <i style={{ background: "#9aa4b5" }} />
+                Raw gap
+              </button>
+              <button
+                type="button"
+                disabled={!hasConv}
+                title={
+                  hasConv
+                    ? "Converted MODIS − real VIIRS per cell (VIIRS years only)"
+                    : "Converted layer not available in this dataset"
+                }
+                onClick={() => hasConv && onShowMap("convdiff")}
+              >
+                <i style={{ background: SENSOR_COLORS.conv }} />
+                After conversion
+              </button>
+            </div>
+          </section>
+        )}
 
         <section>
           <div className="sec-head">
