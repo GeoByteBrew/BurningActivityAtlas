@@ -356,17 +356,39 @@ export default function App() {
     return out;
   }, [data]);
 
-  const legendMax = useMemo(() => {
-    if (!data) return 0;
+  /** One colour ceiling for MODIS / VIIRS / harmonized counts so the same red = the same detections. */
+  const sharedCountMax = useMemo(() => {
+    if (!data) return 1;
     const c = data.cells;
     const rIdx = region === "All" ? -2 : c.regions.indexOf(region);
+    const layers = ["modis", "viirs", "harm"] as const;
     const abs: number[] = [];
-    for (let i = 0; i < c.id.length; i++) {
-      if (rIdx !== -2 && c.region[i] !== rIdx) continue;
-      if (values[i] !== 0) abs.push(Math.abs(values[i]));
+    for (const s of layers) {
+      if (s === "harm" && !data.meta.harmonized) continue;
+      const vals = cellRangeValues(data, s, range);
+      for (let i = 0; i < c.id.length; i++) {
+        if (rIdx !== -2 && c.region[i] !== rIdx) continue;
+        if (vals[i] !== 0) abs.push(Math.abs(vals[i]));
+      }
     }
     return robustMax(abs, 0.95);
-  }, [data, values, region]);
+  }, [data, range, region]);
+
+  const legendMax = useMemo(() => {
+    if (!data) return 0;
+    if (sensor === "diff" || sensor === "convdiff") {
+      const c = data.cells;
+      const rIdx = region === "All" ? -2 : c.regions.indexOf(region);
+      const abs: number[] = [];
+      for (let i = 0; i < c.id.length; i++) {
+        if (rIdx !== -2 && c.region[i] !== rIdx) continue;
+        if (values[i] !== 0) abs.push(Math.abs(values[i]));
+      }
+      return robustMax(abs, 0.95);
+    }
+    if (sensor === "harm" && colorMode === "anomaly") return 0;
+    return sharedCountMax;
+  }, [data, values, region, sensor, colorMode, sharedCountMax]);
 
   const closeAbout = useCallback(() => {
     localStorage.setItem(SEEN_KEY, "1");
@@ -443,6 +465,7 @@ export default function App() {
         region={region}
         basemap={basemap}
         values={values}
+        countMax={sharedCountMax}
         medians={medians}
         points={points}
         selectedCell={layer === "grid" ? cell : null}

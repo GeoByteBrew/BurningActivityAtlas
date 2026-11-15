@@ -16,14 +16,13 @@ const ANOMALY: [number, number, number][] = [
   [255, 52, 52],
 ];
 
-// Sequential fire ramp: dim purple → amber → orange → red. Wider hue range so mid values
-// are not all the same red (the previous ramp looked uniformly red on busy world maps).
+// Sequential fire ramp: pale yellow → amber → orange → scarlet → dark red.
 const FIRE: [number, number, number][] = [
-  [48, 22, 55],
-  [120, 40, 70],
-  [200, 75, 35],
-  [240, 140, 30],
-  [255, 52, 52],
+  [255, 236, 140],
+  [255, 196, 60],
+  [255, 140, 30],
+  [220, 55, 25],
+  [120, 10, 10],
 ];
 
 // Diverging: MODIS-dominant (orange) ← neutral → VIIRS-dominant (cyan).

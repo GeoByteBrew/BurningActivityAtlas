@@ -232,66 +232,13 @@ export default function InsightPanel({ data, region, range, sensor, colorMode, s
         )}
       </section>
 
-      {same ? (
-        <section data-chart="same-period">
-          <div className="sec-head">
-            <h3>{periodName} in every year</h3>
-            <div className="legend-row">
-              {harm ? (
-                <>
-                  <LegendDot color={mainColor} label={mainLabel} />
-                  <LegendDot color={SENSOR_COLORS.median} label="Normal" dashed />
-                </>
-              ) : (
-                <>
-                  <LegendDot color={SENSOR_COLORS.modis} label="MODIS" />
-                  <LegendDot color={SENSOR_COLORS.viirs} label="VIIRS" />
-                </>
-              )}
-            </div>
-          </div>
-          <AnnualChart
-            years={years}
-            bars={
-              harm
-                ? [{ key: "main", label: mainLabel, color: mainColor, values: same.map((r) => sumRange(main, r)) }]
-                : [
-                    { key: "modis", label: "MODIS", color: SENSOR_COLORS.modis, values: same.map((r) => sumRange(rm.modis, r)) },
-                    { key: "viirs", label: "VIIRS", color: SENSOR_COLORS.viirs, values: same.map((r) => sumRange(rm.viirs, r)) },
-                  ]
-            }
-            lines={harm ? [{ key: "normal", label: "Normal", color: SENSOR_COLORS.median, values: years.map(() => normal), dashed: true }] : []}
-            isSelected={isSelectedYear}
-            onSelect={(yy) => setRange(same[yy - years[0]])}
-          />
-          <p className="help small">Click a year to see the same months there.</p>
-        </section>
-      ) : (
-      <section data-chart="monthly">
-        <div className="sec-head">
-          <h3>{prof.profile ? "Average month" : `Monthly · ${label}`}</h3>
-          <div className="legend-row">
-            <LegendDot color={harm ? SENSOR_COLORS.harm : sensor === "modis" ? SENSOR_COLORS.modis : SENSOR_COLORS.viirs} label={mainLabel} />
-            {harm && <LegendDot color={SENSOR_COLORS.median} label="Normal" dashed />}
-          </div>
-        </div>
-        <LineChart
-          labels={prof.labels}
-          series={[
-            { key: "main", label: mainLabel, color: mainColor, values: prof.vals },
-            ...(harm ? [{ key: "median", label: `Normal (${b0}–${b1} median)`, color: SENSOR_COLORS.median, values: rp.vals, dashed: true }] : []),
-          ]}
-        />
-      </section>
-      )}
-
       <section data-chart="calendar">
         <div className="sec-head">
           <h3>Burning Activity Calendar</h3>
           <span className="tag">{harm && colorMode === "anomaly" ? "ratio to normal" : mainLabel}</span>
         </div>
         <CalendarHeatmap years={years} grid={grid} normal={harm && colorMode === "anomaly" ? rm.median : null} isInRange={calInRange} onPick={pickCal} />
-        <p className="help small">Click a month to select it, or a year label to select the whole year.</p>
+        <p className="help small">Click a month to select it, or a year label to select the whole year. Replaces a separate monthly chart.</p>
       </section>
     </>
   );

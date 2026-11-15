@@ -47,6 +47,8 @@ interface Props {
   basemap: Basemap;
   /** per-cell totals over the range for the active sensor view */
   values: Float64Array;
+  /** Shared colour ceiling for count mode (same red = same detections for MODIS / VIIRS / harm). */
+  countMax?: number;
   /** per-cell normal over the range (harmonized baseline median) */
   medians: Float64Array;
   points: PointSet | null;
@@ -242,8 +244,27 @@ function regionRect(data: Dataset, region: string): Rectangle {
   return regionCoreRect(data, region);
 }
 
+/** Soften over-simplified country rings (Chaikin) so borders look less zig-zag. */
+function smoothRing(ring: number[][], passes = 2): number[][] {
+  if (ring.length < 4) return ring;
+  let pts = ring[0][0] === ring.at(-1)![0] && ring[0][1] === ring.at(-1)![1] ? ring.slice(0, -1) : ring.slice();
+  for (let p = 0; p < passes; p++) {
+    const next: number[][] = [];
+    const n = pts.length;
+    for (let i = 0; i < n; i++) {
+      const a = pts[i];
+      const b = pts[(i + 1) % n];
+      next.push([0.75 * a[0] + 0.25 * b[0], 0.75 * a[1] + 0.25 * b[1]]);
+      next.push([0.25 * a[0] + 0.75 * b[0], 0.25 * a[1] + 0.75 * b[1]]);
+    }
+    pts = next;
+  }
+  pts.push(pts[0]);
+  return pts;
+}
+
 export default function Globe(props: Props) {
-  const { data, sensor, colorMode, layer, range, region, basemap, values, medians, points, selectedCell } = props;
+  const { data, sensor, colorMode, layer, range, region, basemap, values, countMax, medians, points, selectedCell } = props;
   const container = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
   const gridRef = useRef<Primitive | null>(null);
@@ -279,7 +300,7 @@ export default function Globe(props: Props) {
     scene.globe.showGroundAtmosphere = true;
     scene.globe.depthTestAgainstTerrain = false;
     const ctrl = scene.screenSpaceCameraController;
-    ctrl.minimumZoomDistance = 4000;
+    ctrl.minimumZoomDistance = 1200;
     ctrl.maximumZoomDistance = 3.2e7;
     // Prefer map-like control: less tilt, keep the globe upright.
     ctrl.inertiaSpin = 0.7;
@@ -426,13 +447,14 @@ export default function Globe(props: Props) {
       const active = region === "All" || region === f.properties.name;
       const polys = (f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates) as number[][][][];
       for (const poly of polys) {
-        const ring = poly[0];
+        const ring = smoothRing(poly[0]);
+        if (ring.length < 2) continue;
         ds.entities.add({
           polyline: {
             positions: Cartesian3.fromDegreesArrayHeights(ring.flatMap(([x, y]) => [x, y, 150])),
-            width: active ? 2 : 1,
+            width: active ? 1.5 : 0.8,
             arcType: ArcType.GEODESIC,
-            material: Color.WHITE.withAlpha(active ? 0.75 : 0.22),
+            material: Color.WHITE.withAlpha(active ? 0.55 : 0.16),
           },
         });
       }
@@ -520,7 +542,8 @@ export default function Globe(props: Props) {
       if (values[i] !== 0 || (anomaly && medians[i] >= 1)) keep[i] = 1;
       if (values[i] !== 0) absVals.push(Math.abs(values[i]));
     }
-    const max = robustMax(absVals, 0.95);
+    const localMax = robustMax(absVals, 0.95);
+    const max = !anomaly && sensor !== "diff" && sensor !== "convdiff" && countMax && countMax > 0 ? countMax : localMax;
     heightsRef.current = heights;
 
     const old = gridRef.current;
@@ -596,7 +619,7 @@ export default function Globe(props: Props) {
       stop();
       removeOld();
     };
-  }, [data, sensor, colorMode, values, medians, region, layer]);
+  }, [data, sensor, colorMode, values, countMax, medians, region, layer]);
 
   // ---- phone: bring the selected cell into the upper, uncovered part of the screen
   useEffect(() => {

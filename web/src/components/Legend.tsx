@@ -75,7 +75,9 @@ export default function Legend({
           </>
         )}
       </div>
-      <span className="legend-sub">Colour on a log scale (95th percentile)</span>
+      <span className="legend-sub">
+        {diff ? "Colour on a log scale (95th percentile)" : "Shared scale for MODIS / VIIRS / harmonized · log · 95th percentile"}
+      </span>
     </div>
   );
 }

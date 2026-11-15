@@ -248,7 +248,8 @@ def export_dataset(cfg, ds: dict, out, overview: bool) -> dict | None:
     if level == "super":
         g = g.dissolve("parent").reset_index().rename(columns={"parent": "name", "name": "_n"})
     g = g[g["name"].isin(regions)]
-    g = g.assign(geometry=g.geometry.intersection(box(*bbox)).simplify(0.08 if overview else 0.01, preserve_topology=True))
+    # Gentle simplify: coarse 0.08° made country borders look like zig-zags on the globe.
+    g = g.assign(geometry=g.geometry.intersection(box(*bbox)).simplify(0.02 if overview else 0.004, preserve_topology=True))
     aoi_json = json.loads(g[~g.geometry.is_empty][["name", "geometry"]].to_json())
     for feat in aoi_json["features"]:
         feat.pop("id", None)

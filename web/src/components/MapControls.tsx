@@ -59,16 +59,17 @@ export default function MapControls({
   const zoom = (dir: 1 | -1) => {
     const v = getViewer();
     if (!v) return;
-    const h = Cartesian3.magnitude(v.camera.positionWC);
-    const next = dir < 0 ? h * 0.55 : h * 1.8;
+    // Zoom toward the look-at height (cartographic), not ECEF magnitude — stronger + steps.
+    const c = v.camera.positionCartographic;
+    const h = c.height;
+    const next = dir < 0 ? h * 0.42 : h * 2.15;
     const min = v.scene.screenSpaceCameraController.minimumZoomDistance;
     const max = v.scene.screenSpaceCameraController.maximumZoomDistance;
     const target = Math.min(max, Math.max(min, next));
-    const c = v.camera.positionCartographic;
     v.camera.flyTo({
       destination: Cartesian3.fromRadians(c.longitude, c.latitude, target),
       orientation: { heading: v.camera.heading, pitch: v.camera.pitch, roll: 0 },
-      duration: 0.45,
+      duration: 0.35,
     });
   };
 
