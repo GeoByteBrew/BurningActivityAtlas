@@ -12,6 +12,7 @@ import Header, { FlameMark } from "./components/Header";
 import InsightPanel from "./components/InsightPanel";
 import Legend from "./components/Legend";
 import MapControls from "./components/MapControls";
+import MapScale from "./components/MapScale";
 import MethodPanel from "./components/MethodPanel";
 import Timeline from "./components/Timeline";
 import { robustMax } from "./colors";
@@ -587,6 +588,7 @@ export default function App() {
         baseline={`${meta.calibration.baseline_years[0]}–${meta.calibration.baseline_years[1]}`}
       />
       <MapControls getViewer={() => viewer.current} basemap={basemap} setBasemap={setBasemap} />
+      <MapScale getViewer={() => viewer.current} />
       {drawing && (
         <div className="draw-bar glass" role="toolbar" aria-label="Draw your area">
           <span>

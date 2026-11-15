@@ -77,11 +77,18 @@ export default function Header({
             >
               {datasets
                 .filter((d) => d.kind !== "mid" && d.kind !== "coarse")
-                .map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name} · {d.cell_size_m / 1000} km
-                  </option>
-                ))}
+                .map((d) => {
+                  // Zoom LOD keeps world_25km out of the list; show the live cell size on World.
+                  const liveKm =
+                    d.id === "world" && (datasetId === "world" || datasetId === "world_25km")
+                      ? (datasets.find((x) => x.id === datasetId)?.cell_size_m ?? d.cell_size_m) / 1000
+                      : d.cell_size_m / 1000;
+                  return (
+                    <option key={d.id} value={d.id}>
+                      {d.name} · {liveKm} km
+                    </option>
+                  );
+                })}
             </select>
           </label>
         )}
