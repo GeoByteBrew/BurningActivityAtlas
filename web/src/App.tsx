@@ -98,6 +98,7 @@ export default function App() {
   const [datasets, setDatasets] = useState<DatasetEntry[]>([]);
   const [datasetId, setDatasetId] = useState<string | null>(null);
   const [switching, setSwitching] = useState(false);
+  const [painting, setPainting] = useState(false);
   const mobile = useMobile();
   const [sheet, setSheet] = useState<Sheet>(null);
   const [sheetFull, setSheetFull] = useState(true);
@@ -449,9 +450,8 @@ export default function App() {
     return (
       <div className="splash">
         <FlameMark size={48} />
-        <span className="spin" aria-hidden />
+        <div className="loader" />
         <p>Loading fire records…</p>
-        <p className="help small">World overview is ~25 km — first load can take a few seconds.</p>
       </div>
     );
 
@@ -483,6 +483,7 @@ export default function App() {
           viewer.current = v;
           setViewerReady((n) => n + 1);
         }}
+        onPaint={setPainting}
       />
 
       <Header
@@ -573,21 +574,25 @@ export default function App() {
           </button>
         </div>
       )}
-      {(switching || (layer === "points" && loadingPts)) && (
-        <div className="loading-pill glass" role="status" aria-live="polite">
-          <span className="spin" aria-hidden />
-          <span>
-            {switching
-              ? (() => {
-                  const d = datasets.find((x) => x.id === datasetId);
-                  const km = d?.cell_size_m ? `${d.cell_size_m / 1000} km` : null;
-                  return `Loading ${d?.name ?? "dataset"}${km ? ` · ${km}` : ""}…`;
-                })()
-              : "Loading detections…"}
-          </span>
-        </div>
-      )}
-      {!switching && zoomHint && <div className="loading-pill glass">Zoom · {zoomHint}</div>}
+      {(() => {
+        // Spinner on the map only (not the splash): fetch, or heavy 10/25 km choropleth paint.
+        const heavyPaint = painting && meta.cell_size_m >= 10_000;
+        const busy = switching || heavyPaint || (layer === "points" && loadingPts);
+        if (!busy) return !switching && !painting && zoomHint ? <div className="loading-pill glass">Zoom · {zoomHint}</div> : null;
+        const d = datasets.find((x) => x.id === datasetId);
+        const km = d?.cell_size_m ? `${d.cell_size_m / 1000} km` : null;
+        const label = switching
+          ? `Loading ${d?.name ?? "dataset"}${km ? ` · ${km}` : ""}…`
+          : heavyPaint
+            ? `Painting ${meta.cell_size_m / 1000} km grid…`
+            : "Loading detections…";
+        return (
+          <div className="loading-pill glass" role="status" aria-live="polite">
+            <span className="spin" aria-hidden />
+            <span>{label}</span>
+          </div>
+        );
+      })()}
 
       <Timeline meta={meta} range={range} playing={playing} setRange={setRange} togglePlay={() => setPlaying((p) => !p)} />
 

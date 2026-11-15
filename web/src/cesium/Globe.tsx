@@ -64,6 +64,8 @@ interface Props {
   onSelectPoint: (p: PickedPoint | null) => void;
   onHover: (h: Hover | null) => void;
   onReady?: (v: Viewer | null) => void;
+  /** True while the choropleth primitive is being built (world grid can take a few seconds). */
+  onPaint?: (painting: boolean) => void;
   /** When true, the next data/region change does not fly the camera (zoom LOD dataset swaps). */
   skipNextFitRef?: MutableRefObject<boolean>;
 }
@@ -529,6 +531,7 @@ export default function Globe(props: Props) {
     const v = viewerRef.current;
     if (!v) return;
     const scene = v.scene;
+    const paint = (on: boolean) => cb.current.onPaint?.(on);
     const c = data.cells;
     const N = c.id.length;
     const rIdx = region === "All" ? -2 : c.regions.indexOf(region);
@@ -553,71 +556,90 @@ export default function Globe(props: Props) {
     if (layer !== "grid" || !keep.some((x) => x === 1)) {
       removeOld();
       gridRef.current = null;
+      paint(false);
       return;
     }
 
-    const instances: GeometryInstance[] = [];
-    const cellH = Math.max(80, data.meta.cell_size_m * 0.02);
-    for (let i = 0; i < N; i++) {
-      if (!keep[i]) continue;
-      const val = values[i];
-      const t = logNorm(Math.abs(val), max);
-      heights[i] = cellH;
-      const rgb = anomaly
-        ? anomalyRgb(cellRatio(val, medians[i]))
-        : sensor === "diff"
-          ? divergeRgb(Math.sign(val) * t)
-          : sensor === "convdiff"
-          ? divergeRgb(-Math.sign(val) * t)
-          : fireRgb(0.08 + 0.92 * t);
-      // Quiet anomaly cells stay more transparent so active fire stands out.
-      const alpha = anomaly && val === 0 ? 0.45 : 0.88;
-      const padY = (c.n[i] - c.s[i]) * 0.04;
-      const south = c.s[i] + padY;
-      const north = c.n[i] - padY;
-      const colorAttr = ColorGeometryInstanceAttribute.fromColor(new Color(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255, alpha));
-      // Cells that cross the antimeridian must be split; a single east<west rectangle draws a whole world strip.
-      const parts: [number, number][] =
-        c.e[i] >= c.w[i]
-          ? [[c.w[i], c.e[i]]]
-          : [
-              [c.w[i], 180],
-              [-180, c.e[i]],
-            ];
-      for (const [west, east] of parts) {
-        const pad = Math.max(0, (east - west) * 0.04);
-        if (east - west <= pad * 2 + 1e-6) continue;
-        instances.push(
-          new GeometryInstance({
-            geometry: new RectangleGeometry({
-              rectangle: Rectangle.fromDegrees(west + pad, south, east - pad, north),
-              height: cellH,
-              vertexFormat: PerInstanceColorAppearance.VERTEX_FORMAT,
+    // Show the map spinner for one frame before the heavy instance loop (world ~25 km).
+    paint(true);
+    let stop: (() => void) | undefined;
+    let cancelled = false;
+    let added: Primitive | null = null;
+    const timer = window.setTimeout(() => {
+      if (cancelled || v.isDestroyed()) return;
+      const instances: GeometryInstance[] = [];
+      const cellH = Math.max(80, data.meta.cell_size_m * 0.02);
+      for (let i = 0; i < N; i++) {
+        if (!keep[i]) continue;
+        const val = values[i];
+        const t = logNorm(Math.abs(val), max);
+        heights[i] = cellH;
+        const rgb = anomaly
+          ? anomalyRgb(cellRatio(val, medians[i]))
+          : sensor === "diff"
+            ? divergeRgb(Math.sign(val) * t)
+            : sensor === "convdiff"
+            ? divergeRgb(-Math.sign(val) * t)
+            : fireRgb(0.08 + 0.92 * t);
+        // Quiet anomaly cells stay more transparent so active fire stands out.
+        const alpha = anomaly && val === 0 ? 0.45 : 0.88;
+        const padY = (c.n[i] - c.s[i]) * 0.04;
+        const south = c.s[i] + padY;
+        const north = c.n[i] - padY;
+        const colorAttr = ColorGeometryInstanceAttribute.fromColor(new Color(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255, alpha));
+        // Cells that cross the antimeridian must be split; a single east<west rectangle draws a whole world strip.
+        const parts: [number, number][] =
+          c.e[i] >= c.w[i]
+            ? [[c.w[i], c.e[i]]]
+            : [
+                [c.w[i], 180],
+                [-180, c.e[i]],
+              ];
+        for (const [west, east] of parts) {
+          const pad = Math.max(0, (east - west) * 0.04);
+          if (east - west <= pad * 2 + 1e-6) continue;
+          instances.push(
+            new GeometryInstance({
+              geometry: new RectangleGeometry({
+                rectangle: Rectangle.fromDegrees(west + pad, south, east - pad, north),
+                height: cellH,
+                vertexFormat: PerInstanceColorAppearance.VERTEX_FORMAT,
+              }),
+              attributes: { color: colorAttr },
+              id: { kind: "cell", i },
             }),
-            attributes: { color: colorAttr },
-            id: { kind: "cell", i },
-          }),
-        );
+          );
+        }
       }
-    }
-    const prim = scene.primitives.add(
-      new Primitive({
-        geometryInstances: instances,
-        appearance: new PerInstanceColorAppearance({ translucent: true, closed: false, flat: true }),
-        asynchronous: true,
-      }),
-    ) as Primitive;
-    gridRef.current = prim;
-    // keep the previous layer on screen until the new primitive has been built by the workers
-    const stop = scene.postRender.addEventListener(() => {
-      if (prim.isDestroyed() || prim.ready) {
-        stop();
-        removeOld();
-      }
-    });
+      if (cancelled || v.isDestroyed()) return;
+      const prim = scene.primitives.add(
+        new Primitive({
+          geometryInstances: instances,
+          appearance: new PerInstanceColorAppearance({ translucent: true, closed: false, flat: true }),
+          asynchronous: true,
+        }),
+      ) as Primitive;
+      added = prim;
+      gridRef.current = prim;
+      // keep the previous layer on screen until the new primitive has been built by the workers
+      stop = scene.postRender.addEventListener(() => {
+        if (prim.isDestroyed() || prim.ready) {
+          stop?.();
+          removeOld();
+          paint(false);
+        }
+      });
+    }, 40);
+
     return () => {
-      stop();
-      removeOld();
+      cancelled = true;
+      window.clearTimeout(timer);
+      stop?.();
+      paint(false);
+      if (added && !added.isDestroyed() && !v.isDestroyed()) {
+        scene.primitives.remove(added);
+        gridRef.current = old;
+      }
     };
   }, [data, sensor, colorMode, values, countMax, medians, region, layer]);
 
