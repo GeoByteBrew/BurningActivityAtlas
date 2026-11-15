@@ -125,15 +125,10 @@ function percentile(sorted: number[], p: number): number {
   return sorted[lo] * (hi - i) + sorted[hi] * (i - lo);
 }
 
-/** Unwrap longitudes onto the continuous short arc [west → east] (east may be west+span > 180). */
-function unwrapLons(lons: number[], west: number, east: number): number[] {
-  if (east >= west) return lons.map((l) => l);
-  return lons.map((l) => (l < west ? l + 360 : l));
-}
-
 /**
- * Frame the *core* of a region (p10–p90 of cell centres), ignoring overseas outliers
- * (e.g. Western Europe includes Caribbean territories that otherwise keep the camera too far).
+ * Frame the core of a region. Overseas outliers (e.g. Caribbean cells tagged Western Europe)
+ * are dropped by distance from the ECEF median; nearby secondary landmasses (NZ next to
+ * Australia) stay within 2× the 90th-percentile radius.
  */
 function regionCoreRect(data: Dataset, region: string): Rectangle {
   if (region === "All") return Rectangle.fromDegrees(...data.meta.bbox);
@@ -145,12 +140,9 @@ function regionCoreRect(data: Dataset, region: string): Rectangle {
   if (rIdx >= 0) {
     for (let i = 0; i < c.id.length; i++) {
       if (c.region[i] !== rIdx) continue;
-      const lon = (c.w[i] + c.e[i]) / 2;
-      const lat = (c.s[i] + c.n[i]) / 2;
-      // Skip cells that straddle the dateline for centre math; still covered by neighbours.
       if (c.e[i] < c.w[i]) continue;
-      lons.push(lon);
-      lats.push(lat);
+      lons.push((c.w[i] + c.e[i]) / 2);
+      lats.push((c.s[i] + c.n[i]) / 2);
     }
   }
   if (lons.length < 3) {
@@ -166,35 +158,60 @@ function regionCoreRect(data: Dataset, region: string): Rectangle {
   }
   if (!lons.length) return Rectangle.fromDegrees(...data.meta.bbox);
 
-  const [arcW, arcE] = tightLonSpan(lons);
-  const unwrapped = unwrapLons(lons, arcW, arcE).sort((a, b) => a - b);
-  const ys = [...lats].sort((a, b) => a - b);
-  // Core box: drop far outliers (French Caribbean in Western Europe, etc.) but keep
-  // secondary landmasses (NZ next to Australia) — p5–p95, not p10–p90.
-  let west = percentile(unwrapped, 0.05);
-  let east = percentile(unwrapped, 0.95);
-  let south = percentile(ys, 0.05);
-  let north = percentile(ys, 0.95);
-  // Minimum span so tiny island groups still get a readable frame.
+  const positions = lons.map((lon, i) => Cartesian3.fromDegrees(lon, lats[i]));
+  // Component-wise median in ECEF ≈ geographic median for compact regions.
+  const xs = positions.map((p) => p.x).sort((a, b) => a - b);
+  const ys = positions.map((p) => p.y).sort((a, b) => a - b);
+  const zs = positions.map((p) => p.z).sort((a, b) => a - b);
+  const med = new Cartesian3(percentile(xs, 0.5), percentile(ys, 0.5), percentile(zs, 0.5));
+  const dist = positions.map((p) => Cartesian3.distance(p, med));
+  const dSorted = [...dist].sort((a, b) => a - b);
+  const r90 = percentile(dSorted, 0.9) || 1;
+  const maxR = r90 * 2;
+  const keepLon: number[] = [];
+  const keepLat: number[] = [];
+  for (let i = 0; i < lons.length; i++) {
+    if (dist[i] <= maxR) {
+      keepLon.push(lons[i]);
+      keepLat.push(lats[i]);
+    }
+  }
+  if (keepLon.length < 3) {
+    keepLon.push(...lons);
+    keepLat.push(...lats);
+  }
+
+  const [west0, east0] = tightLonSpan(keepLon);
+  let south = Math.min(...keepLat);
+  let north = Math.max(...keepLat);
+  let west = west0;
+  let east = east0;
+  // Continuous span for padding (unwrap if crossing).
+  const span = east >= west ? east - west : 360 - (west - east);
+  const latSpan = Math.max(0.1, north - south);
   const minLon = 6;
   const minLat = 4;
-  if (east - west < minLon) {
-    const m = (east + west) / 2;
-    west = m - minLon / 2;
-    east = m + minLon / 2;
+  if (span < minLon) {
+    const c0 = east >= west ? (west + east) / 2 : west + span / 2;
+    west = c0 - minLon / 2;
+    east = c0 + minLon / 2;
   }
-  if (north - south < minLat) {
+  if (latSpan < minLat) {
     const m = (north + south) / 2;
     south = m - minLat / 2;
     north = m + minLat / 2;
   }
-  const padLon = Math.max(0.8, (east - west) * 0.08);
-  const padLat = Math.max(0.8, (north - south) * 0.08);
-  west -= padLon;
-  east += padLon;
+  const padLon = Math.max(0.6, (east >= west ? east - west : 360 - (west - east)) * 0.06);
+  const padLat = Math.max(0.6, (north - south) * 0.06);
+  if (east >= west) {
+    west -= padLon;
+    east += padLon;
+  } else {
+    west -= padLon;
+    east += padLon;
+  }
   south = Math.max(-85, south - padLat);
   north = Math.min(85, north + padLat);
-  // Re-wrap into [-180, 180]; east < west ⇒ crosses antimeridian for Cesium.
   const wrap = (x: number) => ((((x + 180) % 360) + 360) % 360) - 180;
   return Rectangle.fromDegrees(wrap(west), south, wrap(east), north);
 }
