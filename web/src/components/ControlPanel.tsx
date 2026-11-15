@@ -1,4 +1,5 @@
 // AI disclosure: contains code written or modified with a large language model (Claude, Anthropic). See AI_USE.md.
+import { useEffect, useRef, useState } from "react";
 import { SENSOR_COLORS } from "../colors";
 import { fmt } from "../data";
 import type { ColorMode, Layer, Meta, Sensor } from "../types";
@@ -49,6 +50,27 @@ export default function ControlPanel(p: Props) {
   const cell = `${p.meta.cell_size_m / 1000} km`;
   const noPoints = p.meta.points === false;
   const onPoints = p.layer === "points";
+  const regions = ["All", ...p.meta.regions];
+  const regionLabel = p.region === "All" ? p.meta.region_name : p.region;
+  const [regionOpen, setRegionOpen] = useState(false);
+  const regionBox = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!regionOpen) return;
+    const onDoc = (e: PointerEvent) => {
+      if (!regionBox.current?.contains(e.target as Node)) setRegionOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setRegionOpen(false);
+    };
+    document.addEventListener("pointerdown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [regionOpen]);
+
   return (
     <aside className="panel left glass">
       <section>
@@ -97,13 +119,42 @@ export default function ControlPanel(p: Props) {
         <h3>
           <span className="step">2</span> Region
         </h3>
-        <div className="region-list">
-          {["All", ...p.meta.regions].map((r) => (
-            <button key={r} className={p.region === r ? "on" : ""} onClick={() => p.setRegion(r)}>
-              <span>{r === "All" ? p.meta.region_name : r}</span>
-              <span className="num">{fmt(p.regionTotals[r] ?? 0)}</span>
-            </button>
-          ))}
+        <div className="region-dd" ref={regionBox}>
+          <button
+            type="button"
+            className={`region-dd-trigger ${regionOpen ? "open" : ""}`}
+            onClick={() => setRegionOpen((o) => !o)}
+            aria-expanded={regionOpen}
+            aria-haspopup="listbox"
+          >
+            <span className="region-dd-label">
+              <span>{regionLabel}</span>
+              <span className="num">{fmt(p.regionTotals[p.region] ?? 0)}</span>
+            </span>
+            <svg className="region-dd-caret" width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+              <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          {regionOpen && (
+            <div className="region-dd-menu" role="listbox" aria-label="Region">
+              {regions.map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  role="option"
+                  aria-selected={p.region === r}
+                  className={p.region === r ? "on" : ""}
+                  onClick={() => {
+                    p.setRegion(r);
+                    setRegionOpen(false);
+                  }}
+                >
+                  <span>{r === "All" ? p.meta.region_name : r}</span>
+                  <span className="num">{fmt(p.regionTotals[r] ?? 0)}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

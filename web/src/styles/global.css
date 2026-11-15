@@ -340,35 +340,90 @@ kbd {
   cursor: not-allowed;
 }
 
-/* region list */
-.region-list {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+/* region dropdown */
+.region-dd {
+  position: relative;
 }
-
-.region-list button {
+.region-dd-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px 8px 12px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.region-dd-trigger:hover,
+.region-dd-trigger.open {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.region-dd-label {
+  flex: 1;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 34px;
-  padding: 0 11px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  background: transparent;
-  font-size: 13px;
-  color: var(--muted);
-  text-align: left;
+  gap: 10px;
+  min-width: 0;
 }
-
-.region-list button:hover {
-  background: rgba(255, 255, 255, 0.05);
+.region-dd-label > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.region-dd-caret {
+  flex: none;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+.region-dd-trigger.open .region-dd-caret {
+  transform: rotate(180deg);
+  color: var(--accent);
+}
+.region-dd-menu {
+  position: absolute;
+  z-index: 6;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  max-height: min(280px, 42vh);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  background: color-mix(in srgb, #0c1018 92%, transparent);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+.region-dd-menu button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.region-dd-menu button:hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
   color: var(--text);
 }
-
-.region-list button.on {
-  background: rgba(255, 122, 47, 0.1);
-  border-color: rgba(255, 122, 47, 0.35);
+.region-dd-menu button.on {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
   color: var(--text);
   font-weight: 600;
 }
@@ -1708,7 +1763,7 @@ kbd {
   .seg button {
     height: 38px;
   }
-  .region-list button {
+  .region-dd-menu button {
     min-height: 40px;
   }
   .chip {
@@ -1820,10 +1875,6 @@ kbd {
 .region-select option {
   color: #111;
 }
-.region-list {
-  max-height: 232px;
-  overflow-y: auto;
-}
 .chip.ph-cal {
   box-shadow: inset 0 -2px 0 rgba(0, 158, 115, 0.75);
 }
@@ -1868,7 +1919,4 @@ kbd {
   .phase-key {
     display: none;
   }
-}
-.region-list button {
-  flex: none;
 }
