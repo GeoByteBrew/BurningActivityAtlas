@@ -262,7 +262,7 @@ export default function ControlPanel(p: Props) {
         {noPoints && (
           <p className="help small">
             {p.mobileLite
-              ? "Mobile Lite stays on the 50 km grid. Single detections need a 5 km View (Iberia, California, …) — click Detections or pick it under View."
+              ? "Mobile Lite stays on the 50 km grid. 5 km detections are desktop-only (too heavy for phones)."
               : "World and Region stay on the 50 km grid; picking a Country loads 25 km. Single detections need a 5 km View (Iberia, California, Central Africa, South-east Australia) — click Detections or pick it under View."}
           </p>
         )}

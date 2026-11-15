@@ -84,6 +84,8 @@ export default function Header({
             >
               {datasets
                 .filter((d) => d.kind !== "mid" && d.kind !== "coarse")
+                // Phones: hide 5 km windows — they crash Safari under WebGL memory pressure.
+                .filter((d) => !mobileLite || d.kind !== "detail")
                 .map((d) => {
                   // Country drill-down swaps to world_25km; show the live cell size on World.
                   const liveKm =

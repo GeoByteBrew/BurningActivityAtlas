@@ -29,6 +29,10 @@ import { cellInPlace, cellRatio, fmt, fmtRatio, inRange, placeKey } from "../dat
 import { anomalyRgb, divergeRgb, fireRgb, logNorm, robustMax, SENSOR_COLORS } from "../colors";
 import type { Basemap, ColorMode, Dataset, Layer, PickedPoint, PointSet, Range, Sensor } from "../types";
 import { polyBbox, type Poly } from "../aoi";
+import { MOBILE_QUERY } from "../useMobile";
+
+/** Cap choropleth instances on phones when browsing the whole world (Safari OOM guard). */
+const MOBILE_WORLD_CELL_CAP = 10_000;
 
 export interface Hover {
   x: number;
@@ -265,6 +269,23 @@ function smoothRing(ring: number[][], passes = 2): number[][] {
   return pts;
 }
 
+/** Keep at most `maxPts` vertices (closed ring) — phones cannot afford Chaikin-smoothed borders. */
+function decimateRing(ring: number[][], maxPts = 64): number[][] {
+  if (ring.length <= maxPts) return ring;
+  const closed = ring[0][0] === ring.at(-1)![0] && ring[0][1] === ring.at(-1)![1];
+  const body = closed ? ring.slice(0, -1) : ring.slice();
+  const step = Math.ceil(body.length / Math.max(3, maxPts - 1));
+  const out: number[][] = [];
+  for (let i = 0; i < body.length; i += step) out.push(body[i]);
+  if (out.length < 3) return ring;
+  out.push(out[0]);
+  return out;
+}
+
+function isPhoneViewport() {
+  return typeof window !== "undefined" && window.matchMedia(MOBILE_QUERY).matches;
+}
+
 export default function Globe(props: Props) {
   const { data, sensor, colorMode, layer, range, region, basemap, values, countMax, medians, points, selectedCell } = props;
   const country = props.country ?? "All";
@@ -281,6 +302,7 @@ export default function Globe(props: Props) {
 
   // ---- viewer lifecycle
   useEffect(() => {
+    const phone = isPhoneViewport();
     const viewer = new Viewer(container.current!, {
       baseLayer: false,
       animation: false,
@@ -293,22 +315,33 @@ export default function Globe(props: Props) {
       fullscreenButton: false,
       infoBox: false,
       selectionIndicator: false,
-      // 4× MSAA costs too much fill rate on phone GPUs
-      msaaSamples: window.matchMedia("(pointer: coarse)").matches ? 1 : 4,
-      contextOptions: { webgl: { preserveDrawingBuffer: true } },
+      // Phones: 1× MSAA + no preserveDrawingBuffer (Safari WebGL memory).
+      msaaSamples: phone || window.matchMedia("(pointer: coarse)").matches ? 1 : 4,
+      requestRenderMode: phone,
+      targetFrameRate: phone ? 30 : undefined,
+      contextOptions: { webgl: { preserveDrawingBuffer: !phone, powerPreference: phone ? "low-power" : "default" } },
     });
     const scene = viewer.scene;
     scene.globe.baseColor = Color.fromCssColorString("#070a10");
     scene.backgroundColor = Color.fromCssColorString("#03050a");
-    scene.globe.showGroundAtmosphere = true;
+    scene.globe.showGroundAtmosphere = !phone;
     scene.globe.depthTestAgainstTerrain = false;
+    scene.fog.enabled = !phone;
+    scene.globe.showWaterEffect = false;
+    if (phone) {
+      viewer.resolutionScale = 0.75;
+      scene.globe.tileCacheSize = 40;
+      if (scene.skyAtmosphere) scene.skyAtmosphere.show = false;
+      if (scene.sun) scene.sun.show = false;
+      if (scene.moon) scene.moon.show = false;
+    }
     const ctrl = scene.screenSpaceCameraController;
     ctrl.minimumZoomDistance = 1200;
     ctrl.maximumZoomDistance = 3.2e7;
     // Prefer map-like control: less tilt, keep the globe upright.
-    ctrl.inertiaSpin = 0.7;
-    ctrl.inertiaTranslate = 0.7;
-    ctrl.inertiaZoom = 0.6;
+    ctrl.inertiaSpin = phone ? 0.4 : 0.7;
+    ctrl.inertiaTranslate = phone ? 0.4 : 0.7;
+    ctrl.inertiaZoom = phone ? 0.35 : 0.6;
     // Clamp pitch so the view cannot tip into an unreadable oblique angle.
     const clampPitch = () => {
       const cam = viewer.camera;
@@ -457,6 +490,12 @@ export default function Globe(props: Props) {
     const ds = aoiRef.current;
     if (!v || !ds) return;
     ds.entities.removeAll();
+    const phone = isPhoneViewport();
+    // World overview on phones: skip dense border polylines (major Safari memory win).
+    if (phone && region === "All") {
+      v.scene.requestRender?.();
+      return;
+    }
     const dual = data.aoi.features.some((f) => f.properties.level === "country" || f.properties.level === "super");
     for (const f of data.aoi.features) {
       const level = f.properties.level ?? "region";
@@ -481,7 +520,7 @@ export default function Globe(props: Props) {
       if (!show) continue;
       const polys = (f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates) as number[][][][];
       for (const poly of polys) {
-        const ring = smoothRing(poly[0]);
+        const ring = phone ? decimateRing(poly[0], 72) : smoothRing(poly[0]);
         if (ring.length < 2) continue;
         ds.entities.add({
           polyline: {
@@ -493,6 +532,7 @@ export default function Globe(props: Props) {
         });
       }
     }
+    v.scene.requestRender?.();
   }, [data, region, country]);
 
   // ---- user area (analyze your area): finished polygon + vertices being drawn
@@ -567,14 +607,27 @@ export default function Globe(props: Props) {
     const c = data.cells;
     const N = c.id.length;
     const anomaly = sensor === "harm" && colorMode === "anomaly";
+    const phone = isPhoneViewport();
+    const worldBrowse = region === "All" && country === "All";
     const heights = new Float64Array(N);
     const keep = new Uint8Array(N);
     const absVals: number[] = [];
+    const candidates: number[] = [];
     for (let i = 0; i < N; i++) {
       if (!cellInPlace(c, i, region, country)) continue;
-      // in anomaly mode, normally-active cells that stayed quiet are shown as flat blue tiles
-      if (values[i] !== 0 || (anomaly && medians[i] >= 1)) keep[i] = 1;
+      // Phones browsing the world: skip quiet anomaly blues (huge instance count).
+      const showQuiet = anomaly && medians[i] >= 1 && !(phone && worldBrowse);
+      if (values[i] !== 0 || showQuiet) {
+        keep[i] = 1;
+        candidates.push(i);
+      }
       if (values[i] !== 0) absVals.push(Math.abs(values[i]));
+    }
+    // Cap world choropleth on phones — keep the strongest cells only.
+    if (phone && worldBrowse && candidates.length > MOBILE_WORLD_CELL_CAP) {
+      candidates.sort((a, b) => Math.abs(values[b]) - Math.abs(values[a]));
+      keep.fill(0);
+      for (let k = 0; k < MOBILE_WORLD_CELL_CAP; k++) keep[candidates[k]] = 1;
     }
     const localMax = robustMax(absVals, 0.95);
     const max = !anomaly && sensor !== "diff" && sensor !== "convdiff" && countMax && countMax > 0 ? countMax : localMax;
@@ -588,6 +641,7 @@ export default function Globe(props: Props) {
       removeOld();
       gridRef.current = null;
       paint(false);
+      scene.requestRender?.();
       return;
     }
 
@@ -658,9 +712,11 @@ export default function Globe(props: Props) {
           stop?.();
           removeOld();
           paint(false);
+          scene.requestRender?.();
         }
       });
-    }, 40);
+      scene.requestRender?.();
+    }, phone ? 80 : 40);
 
     return () => {
       cancelled = true;
