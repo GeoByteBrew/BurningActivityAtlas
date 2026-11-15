@@ -86,16 +86,16 @@ export default function MapControls({
 
   return (
     <div className="map-controls" ref={root} role="toolbar" aria-label="Map navigation">
-      <button type="button" className="map-ctrl glass" onClick={() => zoom(-1)} title="Zoom in" aria-label="Zoom in">
+      <button type="button" className="map-ctrl" onClick={() => zoom(-1)} title="Zoom in" aria-label="Zoom in">
         +
       </button>
-      <button type="button" className="map-ctrl glass" onClick={() => zoom(1)} title="Zoom out" aria-label="Zoom out">
+      <button type="button" className="map-ctrl" onClick={() => zoom(1)} title="Zoom out" aria-label="Zoom out">
         −
       </button>
-      <button type="button" className="map-ctrl compass glass" onClick={north} title="Reset north (top-down)" aria-label="Reset north">
+      <button type="button" className="map-ctrl compass" onClick={north} title="Reset north (top-down)" aria-label="Reset north">
         <span className="compass-rose" style={{ transform: `rotate(${(-heading * 180) / Math.PI}deg)` }}>
           <i className="compass-n">N</i>
-          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden>
+          <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
             <polygon points="12,3 15,14 12,12 9,14" fill="#ff5a4a" />
             <polygon points="12,21 15,10 12,12 9,10" fill="currentColor" opacity="0.55" />
           </svg>
@@ -105,14 +105,14 @@ export default function MapControls({
       <div className="map-basemap">
         <button
           type="button"
-          className={`map-ctrl glass ${open ? "on" : ""}`}
+          className={`map-ctrl ${open ? "on" : ""}`}
           onClick={() => setOpen((o) => !o)}
           title="Basemap"
           aria-label="Basemap"
           aria-expanded={open}
           aria-haspopup="listbox"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
+          <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden>
             <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.8" />
             <path d="M3 12h18M12 3c2.8 3.2 2.8 14.8 0 18M12 3c-2.8 3.2-2.8 14.8 0 18" fill="none" stroke="currentColor" strokeWidth="1.5" />
           </svg>

@@ -39,14 +39,9 @@ const SEEN_KEY = "baa-about-seen";
 /** Phone layout: which panel the bottom sheet shows (null = map only). */
 type Sheet = "controls" | "insights" | null;
 const STORY = { region: "Portugal", year: 2025, month: 7 };
-/** View-span bands (degrees): wider → coarser dataset. 50 → 25 → 10 → 5 km. */
-const SPAN_COARSE = 55; // above → World 50 km; at/below → World 25 km
-const SPAN_WORLD = 28; // at/below → regional 10 km mid (inside a window)
-const SPAN_FINE = 10; // at/below → regional 5 km detail
-
-function sameWindow(a: DatasetEntry, b: DatasetEntry) {
-  return a.bbox.every((v, i) => v === b.bbox[i]);
-}
+/** World / Region browse on 50 km; Country drill-down swaps to the 25 km world grid. */
+const WORLD_50 = "world";
+const WORLD_25 = "world_25km";
 
 function inBbox(lon: number, lat: number, b: DatasetEntry["bbox"]) {
   return lon >= b[0] && lon <= b[2] && lat >= b[1] && lat <= b[3];
@@ -60,14 +55,8 @@ function lookAtLonLat(v: Viewer): [number, number] {
   return [CesiumMath.toDegrees(c.longitude), CesiumMath.toDegrees(c.latitude)];
 }
 
-/** Approximate visible span in degrees (max of width/height). */
-function viewSpanDeg(v: Viewer): number {
-  const rect = v.camera.computeViewRectangle(v.scene.globe.ellipsoid);
-  if (!rect) return 180;
-  let w = CesiumMath.toDegrees(rect.east - rect.west);
-  if (w < 0) w += 360;
-  const h = Math.abs(CesiumMath.toDegrees(rect.north - rect.south));
-  return Math.max(w, h);
+function isWorldGrid(id: string | null) {
+  return id === WORLD_50 || id === WORLD_25;
 }
 
 /** Move a range by whole years (or by one month when a single month is selected), wrapping around. */
@@ -113,10 +102,7 @@ export default function App() {
   const [drawing, setDrawing] = useState(false);
   const [draft, setDraft] = useState<number[][]>([]);
   const [zoomHint, setZoomHint] = useState<string | null>(null);
-  const [viewerReady, setViewerReady] = useState(0);
   const viewer = useRef<Viewer | null>(null);
-  /** Ignore auto zoom↔dataset switches until this time (manual View pick or just after a switch). */
-  const zoomLockUntil = useRef(0);
   const skipNextFit = useRef(false);
   const datasetIdRef = useRef(datasetId);
   const switchingRef = useRef(switching);
@@ -129,17 +115,14 @@ export default function App() {
   regionRef.current = region;
   countryRef.current = country;
 
-  const pickDataset = useCallback((id: string, reason: "manual" | "zoom" = "manual") => {
+  const pickDataset = useCallback((id: string, reason: "manual" | "place" = "manual") => {
     if (id === datasetIdRef.current) return;
-    zoomLockUntil.current = Date.now() + (reason === "manual" ? 8000 : 1500);
-    if (reason === "zoom") {
-      skipNextFit.current = true; // keep the user's camera; only swap the grid
-      const name = datasets.find((d) => d.id === id)?.name ?? id;
+    // Place-driven 50↔25 swaps keep the pending region/country flyTo from Globe.
+    skipNextFit.current = false;
+    if (reason === "place") {
       const km = (datasets.find((d) => d.id === id)?.cell_size_m ?? 0) / 1000;
-      setZoomHint(km ? `${name} · ${km} km` : name);
-      window.setTimeout(() => setZoomHint(null), 2800);
-    } else {
-      skipNextFit.current = false;
+      setZoomHint(km ? `Grid · ${km} km` : id);
+      window.setTimeout(() => setZoomHint(null), 2400);
     }
     setDatasetId(id);
   }, [datasets]);
@@ -248,50 +231,12 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [datasetId, datasets]);
 
-  // Zoom LOD: World 50 km → World 25 km → regional 10 km → detail 5 km.
-  // Uses the look-at point + visible span (not camera altitude), and does not fly the camera.
+  // Guard: 25 km world grid is only for Country drill-down — never for zoom / Region / All.
   useEffect(() => {
-    const v = viewer.current;
-    if (!v || datasets.length < 2 || drawing) return;
-    const overview = datasets.find((d) => d.kind === "overview") ?? datasets.find((d) => d.id === "world");
-    const coarse = datasets.find((d) => d.kind === "coarse");
-    const details = datasets.filter((d) => d.kind === "detail");
-    const mids = datasets.filter((d) => d.kind === "mid");
-    if (!overview || !details.length) return;
-
-    let timer = 0;
-    const check = () => {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        if (Date.now() < zoomLockUntil.current || switchingRef.current) return;
-        const [lon, lat] = lookAtLonLat(v);
-        const span = viewSpanDeg(v);
-
-        const detail = details.find((d) => inBbox(lon, lat, d.bbox));
-        const mid = detail
-          ? mids.find((m) => sameWindow(m, detail))
-          : mids.find((m) => inBbox(lon, lat, m.bbox));
-
-        let want = overview.id;
-        if (span <= SPAN_COARSE && coarse) want = coarse.id;
-        if (detail || mid) {
-          if (span <= SPAN_FINE && detail) want = detail.id;
-          else if (span <= SPAN_WORLD) want = (mid ?? detail)!.id;
-        }
-
-        pickDataset(want, "zoom");
-      }, 200);
-    };
-
-    const remChanged = v.camera.changed.addEventListener(check);
-    const remEnd = v.camera.moveEnd.addEventListener(check);
-    check();
-    return () => {
-      remChanged();
-      remEnd();
-      window.clearTimeout(timer);
-    };
-  }, [datasets, drawing, pickDataset, viewerReady]);
+    if (datasetId !== WORLD_25 || country !== "All") return;
+    if (!datasets.some((d) => d.id === WORLD_50)) return;
+    pickDataset(WORLD_50, "place");
+  }, [datasetId, country, datasets, pickDataset]);
 
   const meta = data?.meta;
   const y0 = meta ? yearOf(meta, range.start) : 0;
@@ -426,10 +371,18 @@ export default function App() {
     setRegion(r);
     setCountry("All");
     setCell(null);
+    // Region-level browse stays on the light 50 km world grid.
+    if (isWorldGrid(datasetIdRef.current) && datasets.some((d) => d.id === WORLD_50)) {
+      pickDataset(WORLD_50, "place");
+    }
   };
   const chooseCountry = (c: string) => {
     setCountry(c);
     setCell(null);
+    if (!isWorldGrid(datasetIdRef.current)) return;
+    // Country drill-down loads 25 km; clearing country returns to 50 km.
+    const want = c !== "All" && datasets.some((d) => d.id === WORLD_25) ? WORLD_25 : WORLD_50;
+    pickDataset(want, "place");
   };
   /** World grids ship no points — jump into a detail window under the look-at when possible. */
   const chooseLayer = (l: Layer) => {
@@ -473,6 +426,7 @@ export default function App() {
     setLayer("grid");
     setRegion(STORY.region);
     setCountry("All");
+    if (datasets.some((d) => d.id === WORLD_50)) pickDataset(WORLD_50, "place");
     setRange(monthRange(meta, STORY.year, STORY.month));
     if (mobile) setSheet(null);
   };
@@ -542,7 +496,6 @@ export default function App() {
         skipNextFitRef={skipNextFit}
         onReady={(v) => {
           viewer.current = v;
-          setViewerReady((n) => n + 1);
         }}
         onPaint={setPainting}
       />
@@ -640,8 +593,8 @@ export default function App() {
         </div>
       )}
       {(() => {
-        // Spinner on the map only (not the splash): fetch, or heavy 10/25 km choropleth paint.
-        const heavyPaint = painting && meta.cell_size_m >= 10_000;
+        // Spinner on the map only (not the splash): fetch, or heavy choropleth paint (25 km+).
+        const heavyPaint = painting && meta.cell_size_m >= 25_000;
         const busy = switching || heavyPaint || (layer === "points" && loadingPts);
         if (!busy) return !switching && !painting && zoomHint ? <div className="loading-pill glass">Zoom · {zoomHint}</div> : null;
         const d = datasets.find((x) => x.id === datasetId);

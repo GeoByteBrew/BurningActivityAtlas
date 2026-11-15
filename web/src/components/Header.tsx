@@ -62,7 +62,7 @@ export default function Header({
         {datasets && datasets.length > 1 && onDataset && (
           <label
             className="dataset-pick"
-            title="World at 50 km. Zoom for 25 km, then a named window for 10 km and 5 km (or pick the window here)."
+            title="World / Region use 50 km. Pick a Country for 25 km. Named windows (Iberia, …) are 5 km with detections."
           >
             <span>View</span>
             <select
@@ -78,7 +78,7 @@ export default function Header({
               {datasets
                 .filter((d) => d.kind !== "mid" && d.kind !== "coarse")
                 .map((d) => {
-                  // Zoom LOD keeps world_25km out of the list; show the live cell size on World.
+                  // Country drill-down swaps to world_25km; show the live cell size on World.
                   const liveKm =
                     d.id === "world" && (datasetId === "world" || datasetId === "world_25km")
                       ? (datasets.find((x) => x.id === datasetId)?.cell_size_m ?? d.cell_size_m) / 1000

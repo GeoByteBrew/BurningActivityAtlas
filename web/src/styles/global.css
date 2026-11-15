@@ -781,7 +781,16 @@ kbd {
   z-index: 5;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0;
+  width: 34px;
+  padding: 2px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  background: color-mix(in srgb, var(--panel, #121822) 88%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 18px color-mix(in srgb, #000 28%, transparent);
+  overflow: visible;
 }
 
 .map-scale {
@@ -812,33 +821,40 @@ kbd {
   font-variant-numeric: tabular-nums;
 }
 .map-ctrl {
-  width: 40px;
-  height: 40px;
+  width: 30px;
+  height: 30px;
+  margin: 0;
   padding: 0;
   display: grid;
   place-items: center;
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 600;
   line-height: 1;
   color: var(--text);
   cursor: pointer;
-  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--panel, #121822) 82%, transparent);
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+}
+.map-ctrl + .map-ctrl,
+.map-basemap {
+  border-top: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
 }
 .map-ctrl:hover {
-  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
   color: var(--accent);
 }
 .map-ctrl.compass {
-  height: 44px;
+  height: 32px;
 }
 .map-ctrl.on {
-  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
   color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
 .map-basemap {
   position: relative;
+  display: grid;
+  place-items: center;
 }
 .map-basemap-menu {
   position: absolute;
@@ -847,19 +863,23 @@ kbd {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-width: 128px;
-  padding: 6px;
-  border-radius: 10px;
+  min-width: 118px;
+  padding: 5px;
+  border-radius: 9px;
   border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  background: color-mix(in srgb, var(--panel, #121822) 92%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 18px color-mix(in srgb, #000 28%, transparent);
 }
 .map-basemap-menu button {
   text-align: left;
-  padding: 8px 10px;
+  padding: 7px 9px;
   border: 0;
-  border-radius: 7px;
+  border-radius: 6px;
   background: transparent;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 12px;
   cursor: pointer;
 }
 .map-basemap-menu button:hover {
@@ -875,14 +895,14 @@ kbd {
   display: grid;
   place-items: center;
   position: relative;
-  width: 28px;
-  height: 28px;
+  width: 20px;
+  height: 20px;
   transition: transform 0.08s linear;
 }
 .compass-n {
   position: absolute;
-  top: -2px;
-  font-size: 9px;
+  top: -1px;
+  font-size: 7px;
   font-weight: 700;
   font-family: "JetBrains Mono", monospace;
   color: #ff5a4a;

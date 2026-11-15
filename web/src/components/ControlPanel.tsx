@@ -210,7 +210,11 @@ export default function ControlPanel(p: Props) {
               allLabel="All countries in region"
               onPick={p.setCountry}
             />
+            <p className="help small">Country selection loads the 25 km grid for sharper local detail.</p>
           </>
+        )}
+        {!showCountry && p.meta.cell_size_m >= 25_000 && (
+          <p className="help small">World and Region use the 50 km grid for smoother browsing.</p>
         )}
       </section>
 
@@ -247,8 +251,8 @@ export default function ControlPanel(p: Props) {
         </div>
         {noPoints && (
           <p className="help small">
-            Single detections ship only in regional Views (Iberia, California, Central Africa, South-east Australia). Click
-            Detections to open one, or pick it under View.
+            World and Region stay on the 50 km grid; picking a Country loads 25 km. Single detections need a 5 km View
+            (Iberia, California, Central Africa, South-east Australia) — click Detections or pick it under View.
           </p>
         )}
       </section>
