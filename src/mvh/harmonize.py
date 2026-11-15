@@ -349,9 +349,7 @@ def eval_finish(mom: pd.DataFrame, rm: pd.DataFrame, both: pd.DataFrame, by: lis
     out["pearson"] = (cov / np.sqrt(var.where(var > 0))).where(g["n"] > 2)
 
     def corr(x, method="pearson"):
-        if len(x) <= 2 or x["harm"].nunique() < 2 or x["v"].nunique() < 2:
-            return np.nan                       # undefined on a constant series (tiny groups)
-        return x["harm"].corr(x["v"], method=method)
+        return x["harm"].corr(x["v"], method=method) if len(x) > 2 else np.nan
 
     # Rows exist only where at least one sensor detected something; rank correlation over that
     # selection is biased towards 0 (the predictor is 0 in most small-fire cell-months). Spearman
