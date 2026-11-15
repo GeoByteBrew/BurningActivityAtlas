@@ -330,6 +330,13 @@ export default function Globe(props: Props) {
     };
     const removeClamp = scene.postRender.addEventListener(clampPitch);
     viewerRef.current = viewer;
+    // showOnScreen: false → listed in Cesium’s “Data attribution” lightbox (“Data provided by:”)
+    viewer.creditDisplay.addStaticCredit(
+      new Credit(
+        '<a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" rel="noopener noreferrer">Fire detections © NASA FIRMS</a> (MODIS MCD14ML · VIIRS VNP14IMG)',
+        false,
+      ),
+    );
     cb.current.onReady?.(viewer);
 
     const aoi = new CustomDataSource("aoi");
