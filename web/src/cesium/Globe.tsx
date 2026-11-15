@@ -169,11 +169,12 @@ function regionCoreRect(data: Dataset, region: string): Rectangle {
   const [arcW, arcE] = tightLonSpan(lons);
   const unwrapped = unwrapLons(lons, arcW, arcE).sort((a, b) => a - b);
   const ys = [...lats].sort((a, b) => a - b);
-  // Core box: drop the farthest 10% each side (overseas departments, sparse islets).
-  let west = percentile(unwrapped, 0.1);
-  let east = percentile(unwrapped, 0.9);
-  let south = percentile(ys, 0.1);
-  let north = percentile(ys, 0.9);
+  // Core box: drop far outliers (French Caribbean in Western Europe, etc.) but keep
+  // secondary landmasses (NZ next to Australia) — p5–p95, not p10–p90.
+  let west = percentile(unwrapped, 0.05);
+  let east = percentile(unwrapped, 0.95);
+  let south = percentile(ys, 0.05);
+  let north = percentile(ys, 0.95);
   // Minimum span so tiny island groups still get a readable frame.
   const minLon = 6;
   const minLat = 4;
