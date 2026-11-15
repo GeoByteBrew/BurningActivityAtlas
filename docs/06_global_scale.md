@@ -53,7 +53,7 @@ python scripts/01_download_data.py            # optional: FIRMS API (needs FIRMS
 python scripts/02_quality_control.py --jobs 4 # ingest, cells, flags, country lookup
 python scripts/04_aggregate.py --jobs 4       # daily cell counts
 python scripts/06_harmonize.py --jobs 4       # factors, validation, series, report
-python scripts/07_export_web.py               # world overview (50 km) + detail windows
+python scripts/07_export_web.py               # world overview (25 km) + detail windows
 cd web && npm install && npm run dev          # http://localhost:5173
 ```
 
@@ -92,9 +92,9 @@ held-out validation, skill by year, annual series, calendar, checks.
 
 `web:` in the configuration lists what `07_export_web.py` writes under `web/public/data/`:
 
-- **overview**: the whole domain on coarse cells (`cell_m`, a multiple of 5 km; default 50 km), regions =
+- **overview**: the whole domain on coarse cells (`cell_m`, a multiple of 5 km; default 25 km), regions =
   super-regions, no single detections. If the browser struggles (the script warns above
-  `web.max_cells`), use 100 km.
+  `web.max_cells`; 25 km is ~178k cells), use 50 km or 100 km.
 - **details**: windows (`bbox`) at 5 km with single detections (capped per year, highest FRP first),
   regions = countries. Four examples are configured (Iberian Peninsula, California, central Africa,
   south-east Australia); each further entry adds a window. A window without data is skipped.

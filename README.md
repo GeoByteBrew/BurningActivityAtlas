@@ -105,7 +105,7 @@ What stage 06 does, in short:
 CesiumJS + React dashboard. The default view is the harmonized series; in "Ratio to normal" mode red on the
 map and in the calendar means more detections than usual for the baseline years, blue means fewer.
 
-- **View** (top right): the world on coarse cells (50 km), or a regional window at 5 km with single
+- **View** (top right): the world on coarse cells (25 km), or a regional window at 5 km with single
   detections. `?dataset=<id>` opens one directly. Windows are listed under `web.details` in the configuration.
 - Timeline: a year, a month, or a range with shift-click; ←/→ shifts the range, Space plays. Years are
   marked as MODIS backcast, calibration, drift check or test.
@@ -125,7 +125,7 @@ cd web && npm install && npm run dev        # http://localhost:5173
 npm run build                               # static site → web/dist/ (runs on any static host)
 ```
 
-The datasets in `web/public/data/` come from the world run of 2026-11-15: the world overview on 50 km
+The datasets in `web/public/data/` come from the world run of 2026-11-15: the world overview on 25 km
 cells and the regional windows listed under `web.details` in the configuration.
 
 ## Folder structure
