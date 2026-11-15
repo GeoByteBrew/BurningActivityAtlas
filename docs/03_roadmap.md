@@ -23,16 +23,19 @@ Versions: [05_version_comparison.md](05_version_comparison.md)
 **Web app**
 - [x] CesiumJS app: grid and detection layers, calendar, charts, CSV/PNG download, method panel
 - [x] Datasets: world overview and regional windows; raw gap and after-conversion comparison layers
+- [x] Analyze your area (upload or draw a polygon → series, ratio, calendar, CSV in the browser)
+- [x] Mobile / small-tablet layout
 
 **Runs and tests**
-- [x] Regional run on real data, Iberian Peninsula + Occitanie (2026-11-13, previous version of the code)
 - [x] Unit tests and end-to-end run on a synthetic multi-tile archive with known ratios
 - [x] One-year world configuration run on the same synthetic archive
-- [x] **World run on real data, 2003–2025** (2026-11-15; MODIS + S-NPP)
+- [x] **World run on real data, 2003–2025** (2026-11-15; MODIS + S-NPP) — report in `outputs/world_multiyear/`
 
 ## Next
 
-Results of the first world run: [05_version_comparison.md](05_version_comparison.md) §5.
+Results of the first world run: [05_version_comparison.md](05_version_comparison.md) §5 ·
+[harmonization_report.md](../outputs/world_multiyear/reports/harmonization_report.md) ·
+[07_nasa_submission.md](07_nasa_submission.md).
 
 1. **Total-preserving correction** of the cell factors (the converted total is about 5% low inside the
    calibration years), then re-run stages 06 and 07.

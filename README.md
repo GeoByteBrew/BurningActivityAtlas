@@ -21,6 +21,8 @@ Core principle: sensors are never pooled. The record is VIIRS S-NPP when it work
 | [docs/04_decision_log.md](docs/04_decision_log.md) | Methodological decisions and their rationale |
 | [docs/05_version_comparison.md](docs/05_version_comparison.md) | Current method compared with the earlier versions; which results belong to which version |
 | [docs/06_global_scale.md](docs/06_global_scale.md) | **Running on the world**: partitions, commands, web datasets, open points |
+| [docs/07_nasa_submission.md](docs/07_nasa_submission.md) | Short NASA Space Apps blurb (results + limits) |
+| [outputs/world_multiyear/reports/harmonization_report.md](outputs/world_multiyear/reports/harmonization_report.md) | World run validation report |
 
 ## Setup
 
@@ -119,6 +121,10 @@ The one-year and regional configurations write to their own folders (`data/world
 
 **First world run done**: 2003–2025, MODIS (Terra, Aqua) and VIIRS S-NPP, 126 tiles, 233 countries.
 Full table and discussion: [docs/05_version_comparison.md](docs/05_version_comparison.md) §5.
+Machine report, figures and CSV: [outputs/world_multiyear/reports/harmonization_report.md](outputs/world_multiyear/reports/harmonization_report.md).
+Short NASA blurb: [docs/07_nasa_submission.md](docs/07_nasa_submission.md).
+
+Live web datasets (Justine’s export): **World**, Iberia, California, Central Africa, South-east Australia.
 
 | Result | Value |
 |---|---|
@@ -139,4 +145,4 @@ Known limits of this run:
 - NOAA-20 and NOAA-21 were not downloaded: the backup platforms are tested on synthetic data only.
 - No external validation yet (burned area, known fires).
 
-Tests: 25 passed, including an end-to-end run on a synthetic archive with known ratios.
+Tests: 23 passed, including an end-to-end run on a synthetic archive with known ratios.

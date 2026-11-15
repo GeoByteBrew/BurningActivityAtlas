@@ -46,19 +46,42 @@ export default function AboutModal({ meta, onClose, onMethod }: { meta: Meta; on
         </ol>
 
         <div className="howto">
+          <h3>World result (2003–2025)</h3>
+          <ul>
+            <li>
+              Terra+Aqua → VIIRS factor <b>4.05×</b> (90% CI 4.01–4.10). On held-out months, MODIS / VIIRS goes from{" "}
+              <b>0.24 → 0.98</b> after conversion; region × month correlation with VIIRS is <b>1.00</b>.
+            </li>
+            <li>
+              After calibration (2020–2025) the yearly converted / VIIRS ratio stays between <b>0.94 and 1.01</b> — no large Terra+Aqua
+              drift.
+            </li>
+            <li>
+              <b>Known limits:</b> totals are ~5% low in the calibration years (so 2003–2011 are likely ~5% low vs VIIRS years);
+              single cells stay uncertain; Eastern Asia converts low (~0.76); some volcanoes / industrial sources mismatch between
+              products (e.g. Iceland 2021). This world run uses MODIS + S-NPP only.
+            </li>
+          </ul>
+        </div>
+
+        <div className="howto">
           <h3>Explore in 30 seconds</h3>
           <ul>
             <li>
-              Pick a <b>period</b> on the timeline: a year, a month, or shift-click to span several. Red means more fire than normal
-              for that time of year, blue means less.
+              Switch <b>dataset</b> (top): World at 50 km, or a regional window at 5 km with single detections.
+            </li>
+            <li>
+              Pick a <b>period</b> on the timeline: a year, a month, or shift-click to span several. In Ratio to normal, red means more
+              fire than usual for that time of year, blue means less.
             </li>
             <li>
               Click a cell in the <b>Burning Activity Calendar</b> to jump to that month. Press <kbd>Space</kbd> to play through the years.
             </li>
-            <li>Click any column on the globe for that cell's history. Use <b>Download</b> for CSV, charts or a map image.</li>
             <li>
-              <em>Compare sensors</em> shows raw MODIS, raw VIIRS, their raw gap, and what is left of it after conversion.
+              <b>Your area</b>: upload GeoJSON / KML / Shapefile or draw a polygon — get the harmonized series, ratio to normal, calendar
+              and CSV for that boundary (computed in the browser).
             </li>
+            <li>Click any column on the globe for that cell's history. Use <b>Download</b> for CSV, charts or a map image.</li>
             <li>
               "More than normal" means more <b>detections</b> than the usual count for those months. It is not burned area, number of
               fires or intensity. Years before 2012 are MODIS converted, not VIIRS observations (italic on the timeline).
@@ -68,8 +91,9 @@ export default function AboutModal({ meta, onClose, onMethod }: { meta: Meta; on
 
         <div className="sources">
           <span>
-            <b>Data</b> NASA FIRMS: MODIS MCD14ML C6.1 (Terra, Aqua), VIIRS VNP14IMG (Suomi NPP) · {meta.region_name}, {meta.period[0]} to{" "}
-            {meta.period[1]}
+            <b>Data</b> NASA FIRMS: MODIS MCD14ML C6.1 (Terra, Aqua), VIIRS VNP14IMG ({meta.reference_platform}
+            {meta.platforms?.length ? `; platforms in this dataset: ${meta.platforms.join(", ")}` : ""}) · {meta.region_name},{" "}
+            {meta.period[0]} to {meta.period[1]}
           </span>
           <span>
             <b>Built with</b> CesiumJS, React, Python (pandas, GeoPandas) · data exported {meta.generated_at}
