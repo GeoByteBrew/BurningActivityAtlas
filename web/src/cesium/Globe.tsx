@@ -92,36 +92,99 @@ function basemapProvider(b: Basemap) {
   });
 }
 
+/**
+ * Smallest longitude arc that covers all points. Regions that cross the antimeridian
+ * (NZ, Melanesia, Alaska / Northern America) must NOT use naive min/max lon — that
+ * yields a ~360° box and the camera never reaches the data.
+ */
+function tightLonSpan(lons: number[]): [number, number] {
+  if (!lons.length) return [-180, 180];
+  const xs = [...new Set(lons.map((l) => ((((l + 180) % 360) + 360) % 360) - 180))].sort((a, b) => a - b);
+  if (xs.length === 1) return [xs[0] - 2, xs[0] + 2];
+  let maxGap = 0;
+  let after = xs.length - 1;
+  for (let i = 0; i < xs.length - 1; i++) {
+    const g = xs[i + 1] - xs[i];
+    if (g > maxGap) {
+      maxGap = g;
+      after = i;
+    }
+  }
+  const wrap = xs[0] + 360 - xs[xs.length - 1];
+  if (wrap >= maxGap) return [xs[0], xs[xs.length - 1]];
+  // Cesium: east < west means the rectangle crosses the antimeridian.
+  return [xs[after + 1], xs[after]];
+}
+
+/** Bounding rectangle for a named region from its cells (preferred) or AOI outline. */
 function regionRect(data: Dataset, region: string): Rectangle {
+  if (region === "All") return Rectangle.fromDegrees(...data.meta.bbox);
+
+  const c = data.cells;
+  const rIdx = c.regions.indexOf(region);
+  if (rIdx >= 0) {
+    const lons: number[] = [];
+    let s = 90;
+    let n = -90;
+    for (let i = 0; i < c.id.length; i++) {
+      if (c.region[i] !== rIdx) continue;
+      lons.push((c.w[i] + c.e[i]) / 2);
+      s = Math.min(s, c.s[i]);
+      n = Math.max(n, c.n[i]);
+    }
+    if (lons.length) {
+      const [w, e] = tightLonSpan(lons);
+      const padLat = Math.max(1.5, (n - s) * 0.12);
+      // Lon padding in degrees along the short arc (not across the dateline gap).
+      const span = e >= w ? e - w : 360 - (w - e);
+      const padLon = Math.min(8, Math.max(1.5, span * 0.1));
+      let west = w - padLon;
+      let east = e + padLon;
+      if (e >= w) {
+        west = Math.max(-180, west);
+        east = Math.min(180, east);
+      } else {
+        // keep antimeridian crossing; wrap padded edges into [-180,180]
+        west = ((((west + 180) % 360) + 360) % 360) - 180;
+        east = ((((east + 180) % 360) + 360) % 360) - 180;
+      }
+      return Rectangle.fromDegrees(west, Math.max(-90, s - padLat), east, Math.min(90, n + padLat));
+    }
+  }
+
   const f = data.aoi.features.find((x) => x.properties.name === region);
   if (!f) return Rectangle.fromDegrees(...data.meta.bbox);
-  let w = 180, s = 90, e = -180, n = -90;
-  const visit = (c: unknown): void => {
-    if (Array.isArray(c) && typeof c[0] === "number") {
-      const [x, y] = c as number[];
-      w = Math.min(w, x); e = Math.max(e, x); s = Math.min(s, y); n = Math.max(n, y);
-    } else if (Array.isArray(c)) c.forEach(visit);
+  const lons: number[] = [];
+  let s = 90;
+  let n = -90;
+  const visit = (node: unknown): void => {
+    if (Array.isArray(node) && typeof node[0] === "number") {
+      const [x, y] = node as number[];
+      lons.push(x);
+      s = Math.min(s, y);
+      n = Math.max(n, y);
+    } else if (Array.isArray(node)) node.forEach(visit);
   };
   visit(f.geometry.coordinates);
+  const [w, e] = tightLonSpan(lons);
   return Rectangle.fromDegrees(w, s, e, n);
 }
 
 function flyToRect(viewer: Viewer, rect: Rectangle, duration: number) {
-  // Flat choropleth reads best from above: keep heading north and look nearly straight down.
-  if (rect.width > Math.PI || rect.height > Math.PI / 2) {
+  // Destination-as-Rectangle frames antimeridian regions correctly; keep a top-down view.
+  const worldish = rect.width > Math.PI * 0.95 || rect.height > Math.PI / 2;
+  if (worldish) {
     const c0 = Rectangle.center(rect);
     viewer.camera.flyTo({
-      destination: Cartesian3.fromRadians(c0.longitude, Math.max(c0.latitude, 0.25), 2.4e7),
+      destination: Cartesian3.fromRadians(c0.longitude, Math.max(c0.latitude, 0.15), 2.4e7),
       orientation: { heading: 0, pitch: CesiumMath.toRadians(-90), roll: 0 },
       duration,
     });
     return;
   }
-  const c = Rectangle.center(rect);
-  const center = Cartesian3.fromRadians(c.longitude, c.latitude);
-  const r = Cartesian3.distance(center, Cartesian3.fromRadians(rect.west, rect.south));
-  viewer.camera.flyToBoundingSphere(new BoundingSphere(center, r), {
-    offset: new HeadingPitchRange(0, CesiumMath.toRadians(-85), r * 2.6),
+  viewer.camera.flyTo({
+    destination: rect,
+    orientation: { heading: 0, pitch: CesiumMath.toRadians(-90), roll: 0 },
     duration,
   });
 }
