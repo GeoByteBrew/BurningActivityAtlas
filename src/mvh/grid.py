@@ -100,8 +100,17 @@ def cell_bounds(ids, size_m: int, crs: str) -> pd.DataFrame:
     """Lon/lat rectangle of each cell (EPSG:6933 is cylindrical, so cells are lon/lat rectangles)."""
     i, j = unpack(ids)
     tr = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
-    w, s = tr.transform(i * size_m, j * size_m)
-    e, n = tr.transform((i + 1) * size_m, (j + 1) * size_m)
+    # The grid does not stop exactly at the edge of the projection: the outermost cells (beyond
+    # ~84° latitude for coarse cells, or at the antimeridian) reach past it, where the inverse
+    # projection is undefined. Clamp cell edges to the projection limits (±180°, ±90°).
+    x_lim, y_lim = (float(v) for v in Transformer.from_crs("EPSG:4326", crs, always_xy=True).transform(180.0, 90.0))
+    x0, x1 = np.clip(i * size_m, -x_lim, x_lim), np.clip((i + 1) * size_m, -x_lim, x_lim)
+    y0, y1 = np.clip(j * size_m, -y_lim, y_lim), np.clip((j + 1) * size_m, -y_lim, y_lim)
+    w, s = tr.transform(x0, y0)
+    e, n = tr.transform(x1, y1)
+    w, e = x0 / x_lim * 180.0, x1 / x_lim * 180.0          # cylindrical: longitude is linear in x
+    s = np.where(np.isfinite(s), s, np.where(y0 < 0, -90.0, 90.0))
+    n = np.where(np.isfinite(n), n, np.where(y1 < 0, -90.0, 90.0))
     return pd.DataFrame({"w": w, "s": s, "e": e, "n": n}).round(5)
 
 

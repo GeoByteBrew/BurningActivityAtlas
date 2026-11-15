@@ -104,13 +104,20 @@ def standardize(raw: pd.DataFrame, src: dict, qc_cfg: dict) -> pd.DataFrame:
     return df[STD_COLUMNS]
 
 
+def _in_bbox(df: pd.DataFrame, cfg: dict) -> pd.Series:
+    """Global run: the domain is the bbox of the configuration (it leaves out Antarctica and the
+    polar caps, where a 'fire' detection is a station, a volcano or an artefact)."""
+    w, s, e, n = cfg["aoi"]["bbox_wgs84"]
+    return df["longitude"].between(w, e) & df["latitude"].between(s, n)
+
+
 def add_qc_flags(df: pd.DataFrame, cfg: dict, aoi_contains=None, aoi_region=None, clip: bool = True,
                  inplace: bool = False) -> pd.DataFrame:
     """Add boolean QC flags and per-scenario membership columns (q_Q1, q_Q2, ...).
 
     aoi_region: optional fn(lon, lat) -> region name or None; sets `region`.
     clip: True (regional run) keeps only detections inside a region; False (global run) keeps
-    everything and leaves `region` empty for the few points no polygon claims.
+    everything inside aoi.bbox_wgs84 and leaves `region` empty for the few points no polygon claims.
     inplace: add the columns to `df` itself; a busy world partition holds millions of rows and a
     copy doubles its memory.
     """
@@ -132,7 +139,7 @@ def add_qc_flags(df: pd.DataFrame, cfg: dict, aoi_contains=None, aoi_region=None
     lon, lat = df["longitude"].to_numpy(), df["latitude"].to_numpy()
     if aoi_region is not None:
         df["region"] = aoi_region(lon, lat)
-        df["f_in_aoi"] = df["region"].notna() if clip else True
+        df["f_in_aoi"] = df["region"].notna() if clip else _in_bbox(df, cfg)
     elif aoi_contains is not None:
         df["region"] = None
         df["f_in_aoi"] = aoi_contains(lon, lat)

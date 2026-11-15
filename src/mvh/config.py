@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import sys
 from pathlib import Path
 
 import yaml
@@ -93,6 +94,12 @@ def _load_dotenv() -> None:
 
 
 def setup_logging(name: str) -> logging.Logger:
+    # Windows consoles and pipes may use a legacy code page: never fail on a character such as "≤" or "×"
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="replace")
+        except (AttributeError, ValueError):
+            pass
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)-7s %(name)s | %(message)s",
