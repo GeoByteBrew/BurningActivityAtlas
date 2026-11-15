@@ -80,23 +80,26 @@ const SENSOR_LABEL: Record<Sensor, string> = {
   convdiff: "converted MODIS − VIIRS",
 };
 
+const FIRMS_CREDIT =
+  '<a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" rel="noopener noreferrer">Fire detections © NASA FIRMS</a> (MODIS MCD14ML · VIIRS VNP14IMG)';
+
 function basemapProvider(b: Basemap) {
   if (b === "satellite")
     return new UrlTemplateImageryProvider({
       url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
       maximumLevel: 18,
-      credit: new Credit("Imagery © Esri, Maxar, Earthstar Geographics"),
+      credit: new Credit(`${FIRMS_CREDIT} · Imagery © Esri, Maxar, Earthstar Geographics`, true),
     });
   if (b === "bluemarble")
     return new UrlTemplateImageryProvider({
       url: "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg",
       maximumLevel: 8,
-      credit: new Credit("NASA Blue Marble · GIBS / Worldview"),
+      credit: new Credit(`${FIRMS_CREDIT} · NASA Blue Marble · GIBS / Worldview`, true),
     });
   return new UrlTemplateImageryProvider({
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
     maximumLevel: 16,
-    credit: new Credit("Basemap © Esri, HERE, Garmin, © OpenStreetMap contributors"),
+    credit: new Credit(`${FIRMS_CREDIT} · Basemap © Esri, HERE, Garmin, © OpenStreetMap contributors`, true),
   });
 }
 
@@ -330,13 +333,6 @@ export default function Globe(props: Props) {
     };
     const removeClamp = scene.postRender.addEventListener(clampPitch);
     viewerRef.current = viewer;
-    // Fire-data source (basemap credits alone omit FIRMS)
-    viewer.creditDisplay.addStaticCredit(
-      new Credit(
-        '<a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" rel="noopener noreferrer">Fire detections © NASA FIRMS</a> · MODIS MCD14ML · VIIRS VNP14IMG',
-        true,
-      ),
-    );
     cb.current.onReady?.(viewer);
 
     const aoi = new CustomDataSource("aoi");
