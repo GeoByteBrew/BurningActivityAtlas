@@ -67,7 +67,7 @@ export default function Header({
             className="dataset-pick"
             title={
               mobileLite
-                ? "Mobile Lite: World stays on 50 km. Named windows (Iberia, …) are 5 km with detections."
+                ? "Mobile Lite: World/Region stay on 50 km. Named windows (Iberia, …) open 5 km with detections."
                 : "World / Region use 50 km. Pick a Country for 25 km. Named windows (Iberia, …) are 5 km with detections."
             }
           >
@@ -84,8 +84,6 @@ export default function Header({
             >
               {datasets
                 .filter((d) => d.kind !== "mid" && d.kind !== "coarse")
-                // Phones: hide 5 km windows — they crash Safari under WebGL memory pressure.
-                .filter((d) => !mobileLite || d.kind !== "detail")
                 .map((d) => {
                   // Country drill-down swaps to world_25km; show the live cell size on World.
                   const liveKm =

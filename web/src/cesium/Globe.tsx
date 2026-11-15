@@ -31,8 +31,11 @@ import type { Basemap, ColorMode, Dataset, Layer, PickedPoint, PointSet, Range, 
 import { polyBbox, type Poly } from "../aoi";
 import { MOBILE_QUERY } from "../useMobile";
 
-/** Cap choropleth instances on phones when browsing the whole world (Safari OOM guard). */
+/** Cap choropleth instances on phones (Safari OOM guard). */
 const MOBILE_WORLD_CELL_CAP = 10_000;
+const MOBILE_DETAIL_CELL_CAP = 22_000;
+/** Max detection markers drawn on phones. */
+const MOBILE_POINT_CAP = 25_000;
 
 export interface Hover {
   x: number;
@@ -623,11 +626,12 @@ export default function Globe(props: Props) {
       }
       if (values[i] !== 0) absVals.push(Math.abs(values[i]));
     }
-    // Cap world choropleth on phones — keep the strongest cells only.
-    if (phone && worldBrowse && candidates.length > MOBILE_WORLD_CELL_CAP) {
+    // Cap choropleth on phones — keep the strongest cells only.
+    const cellCap = worldBrowse ? MOBILE_WORLD_CELL_CAP : MOBILE_DETAIL_CELL_CAP;
+    if (phone && candidates.length > cellCap) {
       candidates.sort((a, b) => Math.abs(values[b]) - Math.abs(values[a]));
       keep.fill(0);
-      for (let k = 0; k < MOBILE_WORLD_CELL_CAP; k++) keep[candidates[k]] = 1;
+      for (let k = 0; k < cellCap; k++) keep[candidates[k]] = 1;
     }
     const localMax = robustMax(absVals, 0.95);
     const max = !anomaly && sensor !== "diff" && sensor !== "convdiff" && countMax && countMax > 0 ? countMax : localMax;
@@ -784,12 +788,17 @@ export default function Globe(props: Props) {
     const cM = Color.fromCssColorString(SENSOR_COLORS.modis).withAlpha(0.85);
     const cV = Color.fromCssColorString(SENSOR_COLORS.viirs).withAlpha(0.85);
     const scale = new NearFarScalar(1.5e5, 1.8, 3.5e6, 0.6);
+    const phone = isPhoneViewport();
+    let drawn = 0;
+    const stride = phone ? Math.max(1, Math.ceil(points.lon.length / (MOBILE_POINT_CAP * 2))) : 1;
     for (let k = 0; k < points.lon.length; k++) {
+      if (phone && k % stride !== 0) continue;
       if (!inRange(range, points.k[k])) continue;
       if (rIdx !== -2 && points.r[k] !== rIdx) continue;
       const isModis = modis.has(points.p[k]);
       if (sensor === "modis" && !isModis) continue;
       if (sensor === "viirs" && isModis) continue;
+      if (phone && ++drawn > MOBILE_POINT_CAP) break;
       pts.add({
         position: Cartesian3.fromDegrees(points.lon[k], points.lat[k], 50),
         pixelSize: 2.5 + Math.min(8, Math.sqrt(points.frp[k]) * 0.55),
@@ -798,6 +807,7 @@ export default function Globe(props: Props) {
         id: { kind: "pt", i: k },
       });
     }
+    viewerRef.current?.scene.requestRender?.();
   }, [points, sensor, layer, region, country, data, range]);
 
   return <div ref={container} className="globe" />;

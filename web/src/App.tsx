@@ -118,12 +118,6 @@ export default function App() {
   const pickDataset = useCallback((id: string, reason: "manual" | "place" = "manual") => {
     if (id === datasetIdRef.current) return;
     const entry = datasets.find((d) => d.id === id);
-    // Mobile Lite: 5 km detail windows + detection clouds crash Safari — stay on world 50 km.
-    if (mobile && (entry?.kind === "detail" || entry?.kind === "mid")) {
-      setZoomHint("5 km views need a larger screen — staying on World 50 km");
-      window.setTimeout(() => setZoomHint(null), 3200);
-      return;
-    }
     // Place-driven 50↔25 swaps keep the pending region/country flyTo from Globe.
     skipNextFit.current = false;
     if (reason === "place") {
@@ -132,7 +126,7 @@ export default function App() {
       window.setTimeout(() => setZoomHint(null), 2400);
     }
     setDatasetId(id);
-  }, [datasets, mobile]);
+  }, [datasets]);
 
   const showPanel = () => {
     if (mobile) {
@@ -402,11 +396,6 @@ export default function App() {
   const chooseLayer = (l: Layer) => {
     if (l !== "points" || meta?.points !== false) {
       setLayer(l);
-      return;
-    }
-    if (mobile) {
-      setZoomHint("Detections need a larger screen (5 km regional views)");
-      window.setTimeout(() => setZoomHint(null), 3200);
       return;
     }
     const v = viewer.current;
