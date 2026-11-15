@@ -1,6 +1,6 @@
 # 03 · Roadmap
 
-Status date: 2026-11-14. Method: [01_methodology.md](01_methodology.md) · Decisions: [04_decision_log.md](04_decision_log.md) ·
+Status date: 2026-11-15. Method: [01_methodology.md](01_methodology.md) · Decisions: [04_decision_log.md](04_decision_log.md) ·
 Versions: [05_version_comparison.md](05_version_comparison.md)
 
 ## Done
@@ -25,21 +25,23 @@ Versions: [05_version_comparison.md](05_version_comparison.md)
 - [x] Datasets: world overview and regional windows; raw gap and after-conversion comparison layers
 
 **Runs and tests**
-- [x] Regional run on real data, Iberian Peninsula + Occitanie (`config/iberia.yaml`)
+- [x] Regional run on real data, Iberian Peninsula + Occitanie (2026-11-13, previous version of the code)
 - [x] Unit tests and end-to-end run on a synthetic multi-tile archive with known ratios
 - [x] One-year world configuration run on the same synthetic archive
+- [x] **World run on real data, 2003–2025** (2026-11-15; MODIS + S-NPP)
 
 ## Next
 
-1. **World, one year** (`config/world_test_2019.yaml`, see [06_global_scale.md](06_global_scale.md) §3):
-   first real global factors, run time and disk.
-2. **World, full record** (default configuration): the published result and the web overview. Until then
-   the only real-data numbers are regional (Iberian Peninsula + Occitanie).
-3. Confirm on real data: day/night split or pooled, K, the outages found by the screening.
-4. Drift after 2019 by sub-region; in the regional pilot the 2024 departure came from Portugal alone
-   (D-25): check whether the world run shows episodes of the same kind.
-5. Three-way experiment for the presentation: raw MODIS, converted MODIS, real VIIRS on one region.
-6. External validation: EFFIS and MCD64A1 burned area, the Aude 2025 fire, Landsat on 2–3 fires.
+Results of the first world run: [05_version_comparison.md](05_version_comparison.md) §5.
+
+1. **Total-preserving correction** of the cell factors (the converted total is about 5% low inside the
+   calibration years), then re-run stages 06 and 07.
+2. **Volcanoes and static sources**: mask them in both sensors (Iceland 2021 is wrong by a factor of 40–70).
+3. **Eastern Asia**: understand the low conversion (0.76 held-out).
+4. Check the 24 detected outages against the FIRMS mission notes (Aqua August 2020, S-NPP 2024).
+5. Download NOAA-20 and NOAA-21 and measure the backup factors on real data.
+6. External validation: EFFIS and MCD64A1 burned area, known large fires on several continents.
+7. Three-way experiment for the presentation: raw MODIS, converted MODIS, real VIIRS on one region.
 
 ## Later
 

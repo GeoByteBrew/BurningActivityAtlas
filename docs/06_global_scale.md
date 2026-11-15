@@ -96,9 +96,9 @@ Every stage can be re-run: 02 skips raw files already ingested, 04 skips tiles t
 `--tiles t3_1,t3_2` restricts 04 and 05 to some tiles, `--force` rebuilds.
 Stage 06 always recomputes (factors depend on the whole domain).
 
-No world run has been done yet: sizes and times in this document are orders of magnitude. The code has been
-run end to end on a synthetic archive only (`tests/test_end_to_end.py`: 1 M detections, 9 tiles), and the
-one-year configuration on that same archive.
+The full record was run on 2026-11-15 from the FIRMS yearly country files (MODIS and S-NPP): 126 tiles
+hold data. Results: [05_version_comparison.md](05_version_comparison.md) §5. Sizes given as orders of
+magnitude in this document were written before that run.
 
 ## 4. Web datasets
 
@@ -114,7 +114,8 @@ one-year configuration on that same archive.
 The validation tables shown in every dataset are those of the whole run (`validation_scope` in
 `meta.json`); the regional rows are limited to the regions of the dataset.
 
-Stage 07 rewrites `datasets.json` with the datasets of the active configuration.
+Stage 07 rewrites `datasets.json` with the datasets of the active configuration. A folder left by an
+earlier configuration is no longer listed and can be deleted.
 
 ## 5. Open points specific to the world
 

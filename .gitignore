@@ -21,3 +21,6 @@ web/dist/
 # Incoming transfer archives (go to GitHub Release, not git)
 wetransfer_*.zip
 *.zip
+
+# Incoming patch folders from collaborators
+mise_a_jour/

@@ -192,8 +192,13 @@ predictor the way a regression slope is. Its limit is stated in §6.5.
 ### 6.5 What the factor does and does not do
 
 It restores **levels**: regional, monthly and yearly totals, seasonality, trends. It does **not**
-reconstruct VIIRS hotspots: where MODIS saw nothing (more than half of the cell-months with VIIRS fire in
-the Iberian regional run) a multiplier returns nothing, and the cell-month error barely improves. The harmonized record
+reconstruct VIIRS hotspots: where MODIS saw nothing (54% of the cell-months with VIIRS fire in the world
+run) a multiplier returns nothing, and the cell-month error barely improves.
+
+**Known bias.** Cell factors are fitted where MODIS saw something; the VIIRS detections of cell-months
+without any MODIS detection are only partly carried by the upper levels. In the world run the converted
+total is 0.93–0.97 of VIIRS inside the calibration years. A rescaling of the cell factors per region to
+the VIIRS total would remove it; it is not applied yet, so the MODIS-only years are probably about 5% low. The harmonized record
 is a record of activity levels on the VIIRS scale, not a 375 m reconstruction. An anomaly is a number of
 detections above or below the usual count; it is not burned area, a number of fires or an intensity.
 

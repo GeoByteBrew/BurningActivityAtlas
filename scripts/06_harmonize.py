@@ -36,6 +36,7 @@ COL = {"MODIS raw (Terra+Aqua)": "#D55E00", "VIIRS raw": "#0072B2",
        "Harmonized series": "#222222", "MODIS → VIIRS-equivalent": "#009E73"}
 VARIANTS = {"split": lambda cm: cm, "pooled": H.collapse_dn}
 REG_KEYS = H.STRATA + ["super", "region", "year", "month"]
+MIN_M = 1000          # predictor detections below which a regional factor is not reported
 MONTHLY = ["harm_n", "harm_frp", "viirs_n", "modis_raw_n", "modis_as_viirs_n"]
 
 
@@ -239,6 +240,7 @@ def main():
         preds = [p for p in preds if p["name"] in usable]
         cfg["harmonization"]["predictors"] = preds
         av = H.availability(platforms, record_start(cfg), cfg["period"]["end"], hc.get("operational"), outages, preds)
+        win = {c: w for c, w in win.items() if c in usable}        # report only the predictors actually used
     av.to_csv(out / "availability.csv")
     for n in H.UPPER:
         upper[mode]["full"][n].to_csv(out / f"factors_{n}.csv", index=False)
@@ -374,7 +376,8 @@ def main():
         md_table(ci[["config", "f_n", "ci05", "ci95", "n_months", "m_total", "v_total"]]),
         "By day / night:", md_table(ci_dn[["config", "dn", "f_n", "ci05", "ci95", "m_total", "v_total"]]),
         f"By super-region ({main_cfg}):",
-        md_table(ci_sup[ci_sup["config"] == main_cfg][["super", "f_n", "ci05", "ci95", "m_total", "v_total"]]),
+        md_table(ci_sup[(ci_sup["config"] == main_cfg) & (ci_sup["m_total"] >= MIN_M)][["super", "f_n", "ci05", "ci95", "m_total", "v_total"]]),
+        f"Super-regions with fewer than {MIN_M:,} predictor detections are not listed: their ratio is noise.",
         "## 3. Held-out validation inside the calibration window (cell-month, factors fitted on the train part)",
         md_table(val[["config"] + cols_v]),
         "Day/night split against one pooled factor, same held-out cell-months:",

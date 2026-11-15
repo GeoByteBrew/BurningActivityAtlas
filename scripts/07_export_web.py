@@ -76,7 +76,10 @@ def export_dataset(cfg, ds: dict, out, overview: bool) -> dict | None:
     bbox = ds.get("bbox") or cfg["aoi"]["bbox_wgs84"]
     size = int(ds.get("cell_m", fs)) if overview else fs
     level = ds.get("region_level", "super" if overview else "region")
-    clipped = bbox is not None
+    clipped = ds.get("bbox") is not None                       # a window inside the domain
+    # global runs: keep cells inside the domain bbox only (detections processed before the bbox
+    # flag existed may lie beyond it, e.g. Antarctica)
+    in_domain = clipped or not cfg["aoi"].get("clip", True)
     log.info("dataset %s: %s cells, regions = %s, bbox %s", ds["id"], label(size), level, bbox)
 
     # ---- cell × month table inside the bbox, at the dataset's cell size
@@ -86,7 +89,7 @@ def export_dataset(cfg, ds: dict, out, overview: bool) -> dict | None:
     for t in tiles:
         m = store.read(mroot, t, columns=["cell_id", "region", "super", "year", "month", *LAYERS.values()])
         c = store.read(agg / "cells", t, columns=["cell_id", "n", "frp_max"])
-        if clipped:
+        if in_domain:
             b = cell_bounds(c["cell_id"], fs, crs)
             cx, cy = ((b["w"] + b["e"]) / 2).to_numpy(), ((b["s"] + b["n"]) / 2).to_numpy()
             c = c[(cx >= bbox[0]) & (cx <= bbox[2]) & (cy >= bbox[1]) & (cy <= bbox[3])]
@@ -211,7 +214,8 @@ def export_dataset(cfg, ds: dict, out, overview: bool) -> dict | None:
     # ---- validation tables (domain-wide fit; regional rows limited to this dataset's regions)
     ta = lambda d: d["config"] == "terra+aqua" if "config" in d else pd.Series(True, index=d.index)  # noqa: E731
     lv = "super" if level == "super" else "region"
-    in_ds = lambda d: ta(d) & d[lv].isin(regions)  # noqa: E731
+    # regional rows: this dataset's regions, and enough predictor detections for the ratio to mean something
+    in_ds = lambda d: ta(d) & d[lv].isin(regions) & (d["m_total"] >= 1000 if "m_total" in d else True)  # noqa: E731
     as_region = lambda rows: [{**r, "region": r.get(lv)} for r in rows]  # noqa: E731
     ann = m.assign(region=m["reg"]).dropna(subset=["region"]).groupby(["region", "year"], as_index=False).agg(
         modis=("modis_raw_n", "sum"), viirs=("viirs_n", "sum"), harm=("harm_n", "sum"), modis_as_viirs=("modis_as_viirs_n", "sum"))

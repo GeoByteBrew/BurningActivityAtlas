@@ -25,7 +25,7 @@ Core principle: sensors are never pooled. The record is VIIRS S-NPP when it work
 ## Setup
 
 ```bash
-cd nasa_burning_activity                      # your clone of the repository
+cd nasa_burning_activity                  # your clone of the repository
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 cp .env.example .env                          # fill in FIRMS_MAP_KEY
@@ -91,9 +91,8 @@ cd web && npm install && npm run dev        # http://localhost:5173
 npm run build                               # static site → web/dist/ (runs on any static host)
 ```
 
-`web/public/data/` is filled by stage 07. The web datasets, reports and small result tables of the
-real-data runs are added on the `results` branch; raw and intermediate data are published separately as a
-release archive.
+The datasets in `web/public/data/` come from the world run of 2026-11-15: the world overview on 50 km
+cells and the regional windows listed under `web.details` in the configuration.
 
 ## Folder structure
 
@@ -116,15 +115,29 @@ web/                    Burning Activity Atlas (CesiumJS + React)
 The one-year and regional configurations write to their own folders (`data/world_2019/`, `data/iberia/`,
 `outputs/...`), so runs do not overwrite each other.
 
-## Status (2026-11-14)
+## Status (2026-11-15)
 
-- [x] World pipeline: tiles, integer cell ids, incremental ingest, country / UN sub-region hierarchy,
-      outage screening, day/night factors, NOAA-20/21 backup, local uncertainty, web overview + windows
-- [x] Tests: 23 passed, including an end-to-end run on a synthetic multi-tile archive with known ratios;
-      the one-year world configuration was run on the same synthetic archive
-- [ ] **No run on real world data yet.** Next step: `config/world_test_2019.yaml`
-- [ ] Full record 2003–2025; day/night default and K to confirm; external validation (EFFIS, MCD64A1,
-      known fires)
-- Regional pilot result (previous version of the method, Iberian Peninsula + Occitanie):
-  Terra+Aqua factor 2.96 (90%: 2.88–3.07), 2025 converted / VIIRS = 1.03, yearly ratio after calibration
-  0.82–1.09. Not a world result: see [docs/05_version_comparison.md](docs/05_version_comparison.md)
+**First world run done**: 2003–2025, MODIS (Terra, Aqua) and VIIRS S-NPP, 126 tiles, 233 countries.
+Full table and discussion: [docs/05_version_comparison.md](docs/05_version_comparison.md) §5.
+
+| Result | Value |
+|---|---|
+| Terra+Aqua → VIIRS factor (2012–2019) | 4.05 (90%: 4.01–4.10); day 3.48, night 8.87 |
+| Held-out months: raw MODIS / VIIRS → converted / VIIRS | 0.24 → 0.98 |
+| Region × month correlation with VIIRS (held-out) | 1.00 |
+| Converted / VIIRS by year after calibration (2020–2025) | 0.94–1.01 |
+| VIIRS cell-months where MODIS saw nothing | 54% |
+| Outages found and excluded | 24 |
+
+Known limits of this run:
+
+- Converted totals are about 5% low inside the calibration years (0.93–0.97), so the MODIS-only years
+  2003–2011 are probably about 5% low relative to the VIIRS years. A correction is identified, not applied.
+- Single cells stay uncertain: the cell-month error barely improves (4.51 → 4.39).
+- Eastern Asia is converted too low (0.76); volcanic eruptions (Iceland 2021) and some industrial sources
+  are not classified the same way by the two products and give wrong local values.
+- NOAA-20 and NOAA-21 were not downloaded: the backup platforms are tested on synthetic data only.
+- A separate regional dataset **Iberia + Occitanie** on this site includes NOAA-20/21 (downloaded 2026-11-14); it is not the world run.
+- No external validation yet (burned area, known fires).
+
+Tests: 25 passed, including an end-to-end run on a synthetic archive with known ratios.
