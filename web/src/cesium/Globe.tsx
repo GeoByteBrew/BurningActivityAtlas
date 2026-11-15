@@ -80,26 +80,24 @@ const SENSOR_LABEL: Record<Sensor, string> = {
   convdiff: "converted MODIS − VIIRS",
 };
 
-const FIRMS_CREDIT =
-  '<a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" rel="noopener noreferrer">Fire detections © NASA FIRMS</a> (MODIS MCD14ML · VIIRS VNP14IMG)';
-
 function basemapProvider(b: Basemap) {
+  // Short credits only — full FIRMS + basemap list lives in the Data attribution popover.
   if (b === "satellite")
     return new UrlTemplateImageryProvider({
       url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
       maximumLevel: 18,
-      credit: new Credit(`${FIRMS_CREDIT} · Imagery © Esri, Maxar, Earthstar Geographics`, true),
+      credit: new Credit("Esri"),
     });
   if (b === "bluemarble")
     return new UrlTemplateImageryProvider({
       url: "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg",
       maximumLevel: 8,
-      credit: new Credit(`${FIRMS_CREDIT} · NASA Blue Marble · GIBS / Worldview`, true),
+      credit: new Credit("NASA GIBS"),
     });
   return new UrlTemplateImageryProvider({
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
     maximumLevel: 16,
-    credit: new Credit(`${FIRMS_CREDIT} · Basemap © Esri, HERE, Garmin, © OpenStreetMap contributors`, true),
+    credit: new Credit("Esri"),
   });
 }
 

@@ -11,6 +11,7 @@ import DownloadMenu from "./components/DownloadMenu";
 import Header, { FlameMark } from "./components/Header";
 import InsightPanel from "./components/InsightPanel";
 import Legend from "./components/Legend";
+import Attribution from "./components/Attribution";
 import MapControls from "./components/MapControls";
 import MethodPanel from "./components/MethodPanel";
 import Timeline from "./components/Timeline";
@@ -587,6 +588,7 @@ export default function App() {
         baseline={`${meta.calibration.baseline_years[0]}–${meta.calibration.baseline_years[1]}`}
       />
       <MapControls getViewer={() => viewer.current} basemap={basemap} setBasemap={setBasemap} />
+      <Attribution basemap={basemap} />
       {drawing && (
         <div className="draw-bar glass" role="toolbar" aria-label="Draw your area">
           <span>

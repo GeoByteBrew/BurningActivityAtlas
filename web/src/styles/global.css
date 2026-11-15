@@ -60,11 +60,9 @@ kbd {
   inset: 0;
 }
 
+/* Cesium’s default credit strip is replaced by the Data attribution popover */
 .globe .cesium-viewer-bottom {
-  left: calc(var(--left-w) + var(--gap) * 2) !important;
-  bottom: calc(var(--bottom-h) + var(--gap) * 2 - 8px) !important;
-  opacity: 0.55;
-  font-size: 10px;
+  display: none !important;
 }
 
 /* ---------- glass surfaces ---------- */
@@ -842,6 +840,76 @@ kbd {
   color: var(--text);
   background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
+
+/* ---------- data attribution popover ---------- */
+.attr {
+  position: absolute;
+  left: calc(var(--left-w) + var(--gap) * 2);
+  bottom: calc(var(--bottom-h) + var(--gap) * 2);
+  z-index: 5;
+}
+.attr-trigger {
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel, #121822) 82%, transparent);
+}
+.attr-trigger:hover,
+.attr-trigger.on {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.attr-menu {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  width: min(340px, calc(100vw - var(--left-w) - var(--gap) * 6));
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.attr-head {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.attr-menu ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.attr-menu li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.attr-menu b {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+}
+.attr-menu span {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.attr-menu a {
+  color: var(--accent, #f0a060);
+  text-decoration: none;
+}
+.attr-menu a:hover {
+  text-decoration: underline;
+}
+
 .compass-rose {
   display: grid;
   place-items: center;
@@ -1822,13 +1890,15 @@ kbd {
     bottom: calc(40dvh + var(--tabs-h, 54px) + var(--gap));
   }
 
-  /* imagery credits: top right, out of the way of the controls */
-  .globe .cesium-viewer-bottom {
-    left: auto !important;
-    right: var(--gap) !important;
-    top: calc(var(--top-h) + var(--gap) * 2) !important;
-    bottom: auto !important;
-    max-width: 45%;
+  .attr {
+    left: var(--gap);
+    bottom: calc(var(--bottom-h) + var(--tabs-h, 54px) + var(--gap) * 2 + var(--safe-b, 0px));
+  }
+  .app.mobile:not(.sheet-closed) .attr {
+    display: none;
+  }
+  .attr-menu {
+    width: min(300px, calc(100vw - var(--gap) * 4));
   }
 
   /* modals fill the screen */
