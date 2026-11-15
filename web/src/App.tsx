@@ -10,8 +10,10 @@ import DownloadMenu from "./components/DownloadMenu";
 import Header, { FlameMark } from "./components/Header";
 import InsightPanel from "./components/InsightPanel";
 import Legend from "./components/Legend";
+import MapControls from "./components/MapControls";
 import MethodPanel from "./components/MethodPanel";
 import Timeline from "./components/Timeline";
+import { robustMax } from "./colors";
 import {
   cellRangeMedians,
   cellRangeValues,
@@ -261,12 +263,12 @@ export default function App() {
     if (!data) return 0;
     const c = data.cells;
     const rIdx = region === "All" ? -2 : c.regions.indexOf(region);
-    let max = 0;
+    const abs: number[] = [];
     for (let i = 0; i < c.id.length; i++) {
       if (rIdx !== -2 && c.region[i] !== rIdx) continue;
-      max = Math.max(max, Math.abs(values[i]));
+      if (values[i] !== 0) abs.push(Math.abs(values[i]));
     }
-    return max;
+    return robustMax(abs, 0.95);
   }, [data, values, region]);
 
   const closeAbout = useCallback(() => {
@@ -430,6 +432,7 @@ export default function App() {
         max={legendMax}
         baseline={`${meta.calibration.baseline_years[0]}–${meta.calibration.baseline_years[1]}`}
       />
+      <MapControls getViewer={() => viewer.current} />
       {drawing && (
         <div className="draw-bar glass" role="toolbar" aria-label="Draw your area">
           <span>

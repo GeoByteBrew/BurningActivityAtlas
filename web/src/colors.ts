@@ -15,13 +15,13 @@ const ANOMALY: [number, number, number][] = [
   [255, 52, 52],
 ];
 
-// Sequential fire ramp (dim ember → deep red → bright red). Its top is the top of ANOMALY so that
-// "most fire" is the same red in both colour modes.
+// Sequential fire ramp: dim purple → amber → orange → red. Wider hue range so mid values
+// are not all the same red (the previous ramp looked uniformly red on busy world maps).
 const FIRE: [number, number, number][] = [
-  [55, 22, 40],
-  [110, 28, 50],
-  [170, 36, 48],
-  [220, 46, 46],
+  [48, 22, 55],
+  [120, 40, 70],
+  [200, 75, 35],
+  [240, 140, 30],
   [255, 52, 52],
 ];
 
@@ -67,3 +67,15 @@ export const anomalyGradientCss = `linear-gradient(90deg, ${[0.25, 0.5, 1, 2, 4]
 
 /** Log scaling so a handful of very active cells do not wash out the rest. */
 export const logNorm = (v: number, max: number) => (max > 0 ? Math.log1p(Math.max(0, v)) / Math.log1p(max) : 0);
+
+/** Robust colour ceiling: ignore the top outliers so Africa / peak months do not paint everything red. */
+export function robustMax(values: ArrayLike<number>, p = 0.95): number {
+  const pos: number[] = [];
+  for (let i = 0; i < values.length; i++) {
+    const v = values[i];
+    if (v > 0) pos.push(v);
+  }
+  if (!pos.length) return 1;
+  pos.sort((a, b) => a - b);
+  return pos[Math.min(pos.length - 1, Math.floor(p * (pos.length - 1)))] || pos[pos.length - 1];
+}

@@ -717,6 +717,55 @@ kbd {
   color: var(--muted);
 }
 
+/* ---------- map zoom / compass ---------- */
+.map-controls {
+  position: absolute;
+  right: calc(var(--right-w) + var(--gap) * 2);
+  bottom: calc(var(--bottom-h) + var(--gap) * 2 + 26px);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.map-ctrl {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text);
+  cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel, #121822) 82%, transparent);
+}
+.map-ctrl:hover {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  color: var(--accent);
+}
+.map-ctrl.compass {
+  height: 44px;
+}
+.compass-rose {
+  display: grid;
+  place-items: center;
+  position: relative;
+  width: 28px;
+  height: 28px;
+  transition: transform 0.08s linear;
+}
+.compass-n {
+  position: absolute;
+  top: -2px;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: "JetBrains Mono", monospace;
+  color: #ff5a4a;
+}
+
 /* ---------- legend & overlays ---------- */
 .legend {
   position: absolute;
@@ -1641,6 +1690,13 @@ kbd {
   }
   .app.mobile:not(.sheet-closed) .legend {
     display: none;
+  }
+  .map-controls {
+    right: var(--gap);
+    bottom: calc(var(--bottom-h) + var(--tabs-h, 54px) + var(--gap) + var(--safe-b, 0px));
+  }
+  .app.mobile:not(.sheet-closed) .map-controls {
+    bottom: calc(40dvh + var(--tabs-h, 54px) + var(--gap));
   }
 
   /* imagery credits: top right, out of the way of the controls */

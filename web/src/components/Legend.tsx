@@ -49,7 +49,7 @@ export default function Legend({
           <span>2×</span>
           <span>4×+</span>
         </div>
-        <span className="legend-sub">Normal = {baseline} average, same months · height = detections</span>
+        <span className="legend-sub">Normal = {baseline} average, same months</span>
       </div>
     );
 
@@ -74,7 +74,7 @@ export default function Legend({
           </>
         )}
       </div>
-      <span className="legend-sub">Column height and colour on a log scale</span>
+      <span className="legend-sub">Colour on a log scale (95th percentile)</span>
     </div>
   );
 }

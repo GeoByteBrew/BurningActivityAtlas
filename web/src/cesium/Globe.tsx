@@ -25,7 +25,7 @@ import {
   Viewer,
 } from "cesium";
 import { cellRatio, fmt, fmtRatio, inRange } from "../data";
-import { anomalyRgb, divergeRgb, fireRgb, logNorm, SENSOR_COLORS } from "../colors";
+import { anomalyRgb, divergeRgb, fireRgb, logNorm, robustMax, SENSOR_COLORS } from "../colors";
 import type { Basemap, ColorMode, Dataset, Layer, PickedPoint, PointSet, Range, Sensor } from "../types";
 import { polyBbox, type Poly } from "../aoi";
 
@@ -63,7 +63,6 @@ interface Props {
   onReady?: (v: Viewer | null) => void;
 }
 
-const MAX_COLUMN_M = 70000;
 const SENSOR_LABEL: Record<Sensor, string> = {
   modis: "MODIS detections",
   viirs: "VIIRS detections",
@@ -107,17 +106,21 @@ function regionRect(data: Dataset, region: string): Rectangle {
 }
 
 function flyToRect(viewer: Viewer, rect: Rectangle, duration: number) {
+  // Flat choropleth reads best from above: keep heading north and look nearly straight down.
   if (rect.width > Math.PI || rect.height > Math.PI / 2) {
-    // continental / world extent: look straight down from far away instead of an oblique regional view
     const c0 = Rectangle.center(rect);
-    viewer.camera.flyTo({ destination: Cartesian3.fromRadians(c0.longitude, Math.max(c0.latitude, 0.25), 2.4e7), duration });
+    viewer.camera.flyTo({
+      destination: Cartesian3.fromRadians(c0.longitude, Math.max(c0.latitude, 0.25), 2.4e7),
+      orientation: { heading: 0, pitch: CesiumMath.toRadians(-90), roll: 0 },
+      duration,
+    });
     return;
   }
   const c = Rectangle.center(rect);
   const center = Cartesian3.fromRadians(c.longitude, c.latitude);
   const r = Cartesian3.distance(center, Cartesian3.fromRadians(rect.west, rect.south));
   viewer.camera.flyToBoundingSphere(new BoundingSphere(center, r), {
-    offset: new HeadingPitchRange(0, CesiumMath.toRadians(-60), r * 2.9),
+    offset: new HeadingPitchRange(0, CesiumMath.toRadians(-85), r * 2.6),
     duration,
   });
 }
@@ -157,8 +160,34 @@ export default function Globe(props: Props) {
     scene.globe.baseColor = Color.fromCssColorString("#070a10");
     scene.backgroundColor = Color.fromCssColorString("#03050a");
     scene.globe.showGroundAtmosphere = true;
-    scene.screenSpaceCameraController.minimumZoomDistance = 4000;
-    scene.screenSpaceCameraController.maximumZoomDistance = 3.2e7;
+    scene.globe.depthTestAgainstTerrain = false;
+    const ctrl = scene.screenSpaceCameraController;
+    ctrl.minimumZoomDistance = 4000;
+    ctrl.maximumZoomDistance = 3.2e7;
+    // Prefer map-like control: less tilt, keep the globe upright.
+    ctrl.inertiaSpin = 0.7;
+    ctrl.inertiaTranslate = 0.7;
+    ctrl.inertiaZoom = 0.6;
+    // Clamp pitch so the view cannot tip into an unreadable oblique angle.
+    const clampPitch = () => {
+      const cam = viewer.camera;
+      const minP = CesiumMath.toRadians(-89.9);
+      const maxP = CesiumMath.toRadians(-25);
+      if (cam.pitch > maxP || cam.pitch < minP) {
+        const p = Math.min(maxP, Math.max(minP, cam.pitch));
+        cam.setView({
+          destination: cam.positionWC,
+          orientation: { heading: cam.heading, pitch: p, roll: 0 },
+        });
+      }
+      if (Math.abs(cam.roll) > 1e-3) {
+        cam.setView({
+          destination: cam.positionWC,
+          orientation: { heading: cam.heading, pitch: cam.pitch, roll: 0 },
+        });
+      }
+    };
+    const removeClamp = scene.postRender.addEventListener(clampPitch);
     viewerRef.current = viewer;
     cb.current.onReady?.(viewer);
 
@@ -250,6 +279,7 @@ export default function Globe(props: Props) {
 
     return () => {
       cancelAnimationFrame(raf);
+      removeClamp();
       scene.canvas.removeEventListener("mouseleave", onLeave);
       handler.destroy();
       cb.current.onReady?.(null);
@@ -351,7 +381,7 @@ export default function Globe(props: Props) {
     flyToRect(v, regionRect(data, region), 1.6);
   }, [data, region]);
 
-  // ---- 5 km grid columns
+  // ---- flat 2D coloured cells (choropleth) — no extruded columns
   useEffect(() => {
     const v = viewerRef.current;
     if (!v) return;
@@ -362,15 +392,14 @@ export default function Globe(props: Props) {
     const anomaly = sensor === "harm" && colorMode === "anomaly";
     const heights = new Float64Array(N);
     const keep = new Uint8Array(N);
-    // coarse overview cells are tens of km wide: taller columns keep the same visual proportions
-    const zScale = Math.min(6, Math.max(1, Math.sqrt(data.meta.cell_size_m / 5000)));
-    let max = 0;
+    const absVals: number[] = [];
     for (let i = 0; i < N; i++) {
       if (rIdx !== -2 && c.region[i] !== rIdx) continue;
       // in anomaly mode, normally-active cells that stayed quiet are shown as flat blue tiles
       if (values[i] !== 0 || (anomaly && medians[i] >= 1)) keep[i] = 1;
-      max = Math.max(max, Math.abs(values[i]));
+      if (values[i] !== 0) absVals.push(Math.abs(values[i]));
     }
+    const max = robustMax(absVals, 0.95);
     heightsRef.current = heights;
 
     const old = gridRef.current;
@@ -384,11 +413,12 @@ export default function Globe(props: Props) {
     }
 
     const instances: GeometryInstance[] = [];
+    const cellH = Math.max(80, data.meta.cell_size_m * 0.02);
     for (let i = 0; i < N; i++) {
       if (!keep[i]) continue;
       const val = values[i];
       const t = logNorm(Math.abs(val), max);
-      heights[i] = (val === 0 ? 250 : 600 + t * MAX_COLUMN_M) * zScale;
+      heights[i] = cellH;
       const rgb = anomaly
         ? anomalyRgb(cellRatio(val, medians[i]))
         : sensor === "diff"
@@ -396,19 +426,20 @@ export default function Globe(props: Props) {
           : sensor === "convdiff"
           ? divergeRgb(-Math.sign(val) * t)
           : fireRgb(0.08 + 0.92 * t);
-      const pad = (c.e[i] - c.w[i]) * 0.08;
-      const padY = (c.n[i] - c.s[i]) * 0.08;
+      // Quiet anomaly cells stay more transparent so active fire stands out.
+      const alpha = anomaly && val === 0 ? 0.45 : 0.88;
+      const pad = (c.e[i] - c.w[i]) * 0.04;
+      const padY = (c.n[i] - c.s[i]) * 0.04;
       instances.push(
         new GeometryInstance({
           geometry: new RectangleGeometry({
             rectangle: Rectangle.fromDegrees(c.w[i] + pad, c.s[i] + padY, c.e[i] - pad, c.n[i] - padY),
-            height: 0,
-            extrudedHeight: heights[i],
+            height: cellH,
             vertexFormat: PerInstanceColorAppearance.VERTEX_FORMAT,
           }),
           attributes: {
             color: ColorGeometryInstanceAttribute.fromColor(
-              new Color(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255, 1),
+              new Color(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255, alpha),
             ),
           },
           id: { kind: "cell", i },
@@ -418,11 +449,12 @@ export default function Globe(props: Props) {
     const prim = scene.primitives.add(
       new Primitive({
         geometryInstances: instances,
-        appearance: new PerInstanceColorAppearance({ translucent: false, closed: true }),
+        appearance: new PerInstanceColorAppearance({ translucent: true, closed: false, flat: true }),
+        asynchronous: true,
       }),
     ) as Primitive;
     gridRef.current = prim;
-    // keep the previous columns on screen until the new primitive has been built by the workers
+    // keep the previous layer on screen until the new primitive has been built by the workers
     const stop = scene.postRender.addEventListener(() => {
       if (prim.isDestroyed() || prim.ready) {
         stop();
@@ -449,13 +481,13 @@ export default function Globe(props: Props) {
     const aimLat = lat - Math.cos(cam.heading) * back;
     const aimLon = lon - (Math.sin(cam.heading) * back) / Math.cos(CesiumMath.toRadians(lat));
     cam.flyToBoundingSphere(new BoundingSphere(Cartesian3.fromDegrees(aimLon, aimLat), 1), {
-      offset: new HeadingPitchRange(cam.heading, Math.min(cam.pitch, CesiumMath.toRadians(-35)), range),
+      offset: new HeadingPitchRange(0, CesiumMath.toRadians(-80), range),
       duration: 0.8,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCell]);
 
-  // ---- selected cell highlight
+  // ---- selected cell highlight (flat outline)
   useEffect(() => {
     const v = viewerRef.current;
     if (!v) return;
@@ -463,16 +495,15 @@ export default function Globe(props: Props) {
     highlightRef.current = null;
     if (selectedCell === null) return;
     const c = data.cells;
-    const h = Math.max(heightsRef.current[selectedCell] || 0, 1500);
+    const h = Math.max(heightsRef.current[selectedCell] || 0, 100) + 40;
     highlightRef.current = v.entities.add({
       rectangle: {
         coordinates: Rectangle.fromDegrees(c.w[selectedCell], c.s[selectedCell], c.e[selectedCell], c.n[selectedCell]),
-        height: 0,
-        extrudedHeight: h * 1.04 + 400,
-        material: Color.WHITE.withAlpha(0.12),
+        height: h,
+        material: Color.WHITE.withAlpha(0.15),
         outline: true,
         outlineColor: Color.WHITE,
-        outlineWidth: 2,
+        outlineWidth: 3,
       },
     });
   }, [selectedCell, data, values, colorMode, region, layer]);
