@@ -1,0 +1,28 @@
+# Global multi-year validation: 2012–2025
+extends: config.yaml
+
+project:
+  region: world
+
+period:
+  start: "2012-01-20"
+  end: "2025-12-31"
+  modis_start: "2003-01-01"
+
+calibration:
+  end: "2019-12-31"
+  drift_test: ["2020-01-01", "2024-12-31"]
+  independent_test: ["2025-01-01", "2025-12-31"]
+
+harmonization:
+  baseline_years: [2012, 2024]
+  fine_scale: false
+
+paths:
+  processed: data/world_multiyear/processed
+  grids: data/world_multiyear/grids
+  aggregated: data/world_multiyear/aggregated
+  harmonized: data/world_multiyear/harmonized
+  reports: outputs/world_multiyear/reports
+  figures: outputs/world_multiyear/figures
+  csv: outputs/world_multiyear/csv
