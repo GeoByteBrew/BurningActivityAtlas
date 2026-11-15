@@ -1,3 +1,4 @@
+# AI disclosure: written or revised with a large language model (Claude, Anthropic). See AI_USE.md.
 """VIIRS-equivalent harmonization (hierarchical ratio factors), built to run tile by tile.
 
 Method (after the Pix'Elles prototype, extended — see docs/01 §6 and docs/06):
@@ -26,7 +27,6 @@ DEFAULT_PREDICTORS = [
     {"name": "terra", "platforms": ["Terra"], "sensor": "MODIS"},
     {"name": "aqua", "platforms": ["Aqua"], "sensor": "MODIS"},
 ]
-CONFIGS = {p["name"]: p["platforms"] for p in DEFAULT_PREDICTORS}   # the MODIS configurations
 SUMS = ["m", "v", "m_frp", "v_frp"]
 STRATA = ["config", "dn"]
 LEVELS = [  # (name, keys, parent level)

@@ -1,3 +1,4 @@
+// AI disclosure: written with the assistance of an AI tool (large language model). See AI_USE.md.
 /**
  * "Analyze your area": a user polygon (uploaded or drawn) is matched against the 5 km cells of the
  * loaded dataset and their monthly harmonized counts are summed. Runs entirely in the browser.

@@ -1,3 +1,4 @@
+// AI disclosure: contains code written or modified with a large language model (Claude, Anthropic). See AI_USE.md.
 import { useEffect, useRef } from "react";
 import {
   ArcType,
@@ -25,7 +26,7 @@ import {
   Viewer,
 } from "cesium";
 import { cellRatio, fmt, fmtRatio, inRange } from "../data";
-import { anomalyRgb, divergeRgb, fireRgb, percentileOf, sortedPositives, SENSOR_COLORS } from "../colors";
+import { anomalyRgb, divergeRgb, fireRgb, logNorm, robustMax, SENSOR_COLORS } from "../colors";
 import type { Basemap, ColorMode, Dataset, Layer, PickedPoint, PointSet, Range, Sensor } from "../types";
 import { polyBbox, type Poly } from "../aoi";
 
@@ -399,7 +400,7 @@ export default function Globe(props: Props) {
       if (values[i] !== 0 || (anomaly && medians[i] >= 1)) keep[i] = 1;
       if (values[i] !== 0) absVals.push(Math.abs(values[i]));
     }
-    const sorted = sortedPositives(absVals);
+    const max = robustMax(absVals, 0.95);
     heightsRef.current = heights;
 
     const old = gridRef.current;
@@ -417,18 +418,17 @@ export default function Globe(props: Props) {
     for (let i = 0; i < N; i++) {
       if (!keep[i]) continue;
       const val = values[i];
-      // Equal-frequency colouring: mid activity → mid hue (not everything red).
-      const t = percentileOf(Math.abs(val), sorted);
+      const t = logNorm(Math.abs(val), max);
       heights[i] = cellH;
       const rgb = anomaly
         ? anomalyRgb(cellRatio(val, medians[i]))
         : sensor === "diff"
-          ? divergeRgb(Math.sign(val) * (2 * t - 1))
+          ? divergeRgb(Math.sign(val) * t)
           : sensor === "convdiff"
-          ? divergeRgb(-Math.sign(val) * (2 * t - 1))
-          : fireRgb(t);
+          ? divergeRgb(-Math.sign(val) * t)
+          : fireRgb(0.08 + 0.92 * t);
       // Quiet anomaly cells stay more transparent so active fire stands out.
-      const alpha = anomaly && val === 0 ? 0.4 : 0.82;
+      const alpha = anomaly && val === 0 ? 0.45 : 0.88;
       const pad = (c.e[i] - c.w[i]) * 0.04;
       const padY = (c.n[i] - c.s[i]) * 0.04;
       instances.push(

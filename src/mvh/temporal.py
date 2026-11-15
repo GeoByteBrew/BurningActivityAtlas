@@ -1,3 +1,4 @@
+# AI disclosure: written or revised with a large language model (Claude, Anthropic). See AI_USE.md.
 """Overpass identification, cross-sensor overpass matching and daily aggregation."""
 from __future__ import annotations
 

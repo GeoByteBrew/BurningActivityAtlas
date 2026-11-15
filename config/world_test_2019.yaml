@@ -1,4 +1,5 @@
-# The world for one year (2019): the first run to do.
+# AI disclosure: written or revised with a large language model (Claude, Anthropic). See AI_USE.md.
+# The world for one year (2019): a quick first run.
 # 2019 is the last year of the MODIS calibration period and has MODIS, S-NPP and NOAA-20
 # (NOAA-21 starts in 2023 and is skipped automatically). It exercises every stage on real global
 # data in a fraction of the time and disk of the full record.

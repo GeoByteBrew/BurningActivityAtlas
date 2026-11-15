@@ -1,3 +1,4 @@
+# AI disclosure: written or revised with a large language model (Claude, Anthropic). See AI_USE.md.
 """Synthetic FIRMS-like archive with known sensor ratios, for end-to-end tests.
 
 Fire sites are scattered over south-west Europe and north-west Africa (3 UN sub-regions, 2 or more

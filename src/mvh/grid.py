@@ -1,3 +1,4 @@
+# AI disclosure: written or revised with a large language model (Claude, Anthropic). See AI_USE.md.
 """Nested equal-area grids in the global EASE-Grid 2.0 projection (EPSG:6933).
 
 Cells are counted from the projection origin, so ids are globally unique and nest exactly
@@ -42,10 +43,6 @@ def pack(i: np.ndarray, j: np.ndarray) -> np.ndarray:
 def unpack(ids) -> tuple[np.ndarray, np.ndarray]:
     ids = np.asarray(ids, np.int64)
     return (ids >> _SHIFT) - _OFF, (ids & _MASK) - _OFF
-
-
-def cell_ids(i: np.ndarray, j: np.ndarray, size_m: int | None = None) -> np.ndarray:
-    return pack(i, j)
 
 
 def cell_label(ids, size_m: int) -> np.ndarray:
@@ -119,8 +116,8 @@ def build_grid(aoi: gpd.GeoDataFrame, size_m: int, buffer_m: float = 0.0, parent
 
     Columns: cell_id, label, i, j, aoi_fraction (share of the cell inside the unbuffered AOI),
     in_aoi (cell centre inside AOI), parent cell id (optional), geometry.
-    A global 5 km layer would hold ~20 M polygons: at that scale cells are never materialized,
-    they are derived from the ids of non-empty cells (`cells_to_polygons`).
+    A global 5 km layer would hold ~20 M polygons: at that scale cells are never materialized;
+    their bounds are computed from the ids of non-empty cells (`cell_bounds`).
     """
     aoi_geom = shapely.union_all(aoi.geometry.values)
     search = aoi_geom.buffer(buffer_m) if buffer_m else aoi_geom
@@ -149,11 +146,3 @@ def build_grid(aoi: gpd.GeoDataFrame, size_m: int, buffer_m: float = 0.0, parent
     if parent_size_m:
         gdf[f"parent_{label(parent_size_m)}"] = parent_ids(ids, size_m, parent_size_m)
     return gdf
-
-
-def cells_to_polygons(ids, size_m: int, crs: str) -> gpd.GeoDataFrame:
-    """Square polygons for given cell ids (e.g. only the non-empty cells)."""
-    ids = pd.unique(np.asarray(ids, np.int64))
-    i, j = unpack(ids)
-    geom = shapely.box(i * size_m, j * size_m, (i + 1) * size_m, (j + 1) * size_m)
-    return gpd.GeoDataFrame({"cell_id": ids, "label": cell_label(ids, size_m)}, geometry=geom, crs=crs)

@@ -1,3 +1,4 @@
+// AI disclosure: contains code written or modified with a large language model (Claude, Anthropic). See AI_USE.md.
 /** "diff" = raw VIIRS − raw MODIS; "convdiff" = MODIS converted − real VIIRS (VIIRS era only). */
 export type Sensor = "harm" | "modis" | "viirs" | "diff" | "convdiff";
 export type ColorMode = "count" | "anomaly";

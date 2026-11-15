@@ -1,3 +1,4 @@
+# AI disclosure: written or revised with a large language model (Claude, Anthropic). See AI_USE.md.
 """Step 0 — data exploration report (data sufficiency for calibration).
 
 Answers: how many detections per sensor/platform/year, how sparse are 1 km / 5 km cell-days,

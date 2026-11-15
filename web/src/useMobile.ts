@@ -1,3 +1,4 @@
+// AI disclosure: written with the assistance of an AI tool (large language model). See AI_USE.md.
 import { useEffect, useState } from "react";
 
 /** Must match the phone breakpoint in styles/global.css. */

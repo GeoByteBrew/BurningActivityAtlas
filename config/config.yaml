@@ -1,8 +1,9 @@
+# AI disclosure: written or revised with a large language model (Claude, Anthropic). See AI_USE.md.
 # MODIS–VIIRS Harmonization — WORLD configuration (the default)
 # All paths are relative to the project root.
 # Other configurations extend this file and override only what differs:
 #   config/world_test_2019.yaml   the world for one year: first run, to measure time and disk
-#   config/iberia.yaml            a regional run (Iberian Peninsula + Occitanie)
+#   config/multi_year.yaml        the world, full record, in its own folders (run of 2026-11-15)
 # Use one with:  MVH_CONFIG=config/world_test_2019.yaml python scripts/...   (or --config ...)
 
 project:
@@ -11,10 +12,7 @@ project:
 
 aoi:
   name: World
-  # countries = every Natural Earth country intersecting bbox_wgs84 (region = country,
-  #             super-region = UN sub-region)
-  # parts     = a hand-made list of sub-regions (regional run, see config/iberia.yaml)
-  mode: countries
+  # region = every Natural Earth country intersecting bbox_wgs84, super-region = UN sub-region
   # false: keep everything, region stays empty where no polygon claims the point (global run).
   # true: detections outside every region are flagged out (regional study).
   clip: false

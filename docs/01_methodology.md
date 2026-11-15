@@ -75,7 +75,7 @@ All results are produced with Q1. Q2 and Q3 are used to report how much the resu
 - **Processing tiles:** blocks of 400 × 400 cells of 5 km (2000 km). Cells nest in tiles exactly, so
   no cell is ever split between two partitions.
 - **Regions:** each detection gets a region (its country) and each region a super-region (its UN
-  sub-region). A regional run can use hand-made sub-regions instead. A 5 km cell belongs to the region holding most of its
+  sub-region). A 5 km cell belongs to the region holding most of its
   detections. Countries are an administrative choice, not an ecological one: the cell and cell-month
   levels of the factor hierarchy carry the local behaviour, the regions only stabilise sparse cells.
 

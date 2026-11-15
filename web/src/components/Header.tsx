@@ -1,3 +1,4 @@
+// AI disclosure: contains code written or modified with a large language model (Claude, Anthropic). See AI_USE.md.
 import type { ReactNode } from "react";
 import type { DatasetEntry, Meta } from "../types";
 

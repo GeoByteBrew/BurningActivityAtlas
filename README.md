@@ -5,8 +5,8 @@ fire detections, on a global equal-area grid (EPSG:6933, 1 km + 5 km), and a **B
 on top of it.
 
 The default configuration (`config/config.yaml`) is the world, 2003–2025. Every stage works tile by tile
-on partitioned files, so the same code also runs on one year (`config/world_test_2019.yaml`, the first run
-to do) or on one region (`config/iberia.yaml`).
+on partitioned files, so the same code also runs on one year (`config/world_test_2019.yaml`) or on any
+smaller domain (set `aoi.bbox_wgs84`).
 
 Core principle: sensors are never pooled. The record is VIIRS S-NPP when it works; otherwise one stand-in
 (NOAA-20, NOAA-21, then MODIS) converted with a factor measured on days when both worked.
@@ -21,13 +21,14 @@ Core principle: sensors are never pooled. The record is VIIRS S-NPP when it work
 | [docs/04_decision_log.md](docs/04_decision_log.md) | Methodological decisions and their rationale |
 | [docs/05_version_comparison.md](docs/05_version_comparison.md) | Current method compared with the earlier versions; which results belong to which version |
 | [docs/06_global_scale.md](docs/06_global_scale.md) | **Running on the world**: partitions, commands, web datasets, open points |
+| [AI_USE.md](AI_USE.md) | Where and how AI tools were used |
 | [docs/07_nasa_submission.md](docs/07_nasa_submission.md) | Short NASA Space Apps blurb (results + limits) |
 | [outputs/world_multiyear/reports/harmonization_report.md](outputs/world_multiyear/reports/harmonization_report.md) | World run validation report |
 
 ## Setup
 
 ```bash
-cd nasa_burning_activity                  # your clone of the repository
+cd BurningActivityAtlas                   # the cloned repository
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 cp .env.example .env                          # fill in FIRMS_MAP_KEY
@@ -39,8 +40,8 @@ FIRMS MAP_KEY (free): <https://firms.modaps.eosdis.nasa.gov/api/map_key/>
 
 ```bash
 # Choose the run (default = world, full record):
-export MVH_CONFIG=config/world_test_2019.yaml     # first run: the world for one year
-# export MVH_CONFIG=config/iberia.yaml            # one region
+export MVH_CONFIG=config/world_test_2019.yaml     # the world for one year (quick first run)
+# export MVH_CONFIG=config/multi_year.yaml        # the world, full record (run of 2026-11-15)
 
 .venv/bin/python scripts/00_prepare_aoi.py        # regions: countries + UN sub-regions
 .venv/bin/python scripts/03_create_grid.py        # prints the tile layout (world: nothing is materialized)
@@ -100,8 +101,8 @@ cells and the regional windows listed under `web.details` in the configuration.
 
 ```
 config/config.yaml            the world, full record (default)
-config/world_test_2019.yaml   the world for one year (first run)
-config/iberia.yaml            a regional run
+config/world_test_2019.yaml   the world for one year (quick first run)
+config/multi_year.yaml        the world, full record, in its own folders (configuration of the published run)
 src/mvh/                library: firms, qc, grid (ids, tiles), regions, store (partitions), temporal, harmonize
 scripts/                numbered pipeline steps
 data/raw/<region>/<SOURCE>/         raw FIRMS CSV (never modified; sub-folders allowed)
@@ -114,7 +115,7 @@ tests/                  unit tests, synthetic archive generator (synth.py), end-
 web/                    Burning Activity Atlas (CesiumJS + React)
 ```
 
-The one-year and regional configurations write to their own folders (`data/world_2019/`, `data/iberia/`,
+The secondary configurations write to their own folders (`data/world_2019/`, `data/world_multiyear/`,
 `outputs/...`), so runs do not overwrite each other.
 
 ## Status (2026-11-15)
@@ -124,7 +125,7 @@ Full table and discussion: [docs/05_version_comparison.md](docs/05_version_compa
 Machine report, figures and CSV: [outputs/world_multiyear/reports/harmonization_report.md](outputs/world_multiyear/reports/harmonization_report.md).
 Short NASA blurb: [docs/07_nasa_submission.md](docs/07_nasa_submission.md).
 
-Live web datasets (Justine’s export): **World**, Iberia, California, Central Africa, South-east Australia.
+Web datasets: **World**, Iberia, California, Central Africa, South-east Australia.
 
 | Result | Value |
 |---|---|
@@ -146,3 +147,10 @@ Known limits of this run:
 - No external validation yet (burned area, known fires).
 
 Tests: 25 passed, including an end-to-end run on a synthetic archive with known ratios.
+
+## Use of AI tools
+
+The code, tests and documentation of this project were developed with the assistance of large language
+models used as coding and writing assistants (among them Claude, Anthropic). The data are NASA FIRMS
+products and every published value is computed from them by the pipeline; no dataset, table or figure is
+AI-generated, and no NASA branding is used. Details: [AI_USE.md](AI_USE.md).

@@ -1,3 +1,4 @@
+# AI disclosure: written or revised with a large language model (Claude, Anthropic). See AI_USE.md.
 """Overpasses and daily cell counts, tile by tile.
 
 Outputs (data/aggregated/), one file per processing tile (and year):

@@ -55,3 +55,7 @@ prototype (~4.05 vs 4.14–4.28 for Terra+Aqua).
 
 Open the live atlas → pick **World** or a regional window → set the timeline → open **About** / **Method**
 for the evidence → use **Your area** for a project boundary.
+
+---
+
+*AI use: this text was drafted with the assistance of an AI tool (large language model). See [AI_USE.md](../AI_USE.md).*

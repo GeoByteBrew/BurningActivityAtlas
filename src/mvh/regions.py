@@ -1,3 +1,4 @@
+# AI disclosure: written or revised with a large language model (Claude, Anthropic). See AI_USE.md.
 """Statistical regions: point → region lookup that scales from 3 polygons to every country.
 
 A region file has one polygon per row with `name` and (optionally) `parent`, the super-region

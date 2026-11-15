@@ -1,5 +1,6 @@
+// AI disclosure: written with the assistance of an AI tool (large language model). See AI_USE.md.
 import { useLayoutEffect, useRef, useState } from "react";
-import { anomalyRgb, fireRgb, percentileOf, rgbCss, sortedPositives } from "../colors";
+import { anomalyRgb, fireRgb, logNorm, rgbCss, robustMax } from "../colors";
 import { fmt, fmtRatio, MONTHS, ratioToNormal } from "../data";
 
 function useWidth<T extends HTMLElement>() {
@@ -215,11 +216,11 @@ export function CalendarHeatmap({
   const m = { l: 34, t: 14 };
   const cw = (W - m.l - 2) / 12;
   const ch = 12;
-  const sorted = sortedPositives(grid.flat());
+  const max = robustMax(grid.flat(), 0.95);
   const H = m.t + years.length * ch + 2;
   const color = (v: number, mi: number) => {
     if (normal) return rgbCss(anomalyRgb(ratioToNormal(v, normal[mi])));
-    return v === 0 ? "rgba(255,255,255,0.04)" : rgbCss(fireRgb(percentileOf(v, sorted)));
+    return v === 0 ? "rgba(255,255,255,0.04)" : rgbCss(fireRgb(0.05 + 0.9 * logNorm(v, max)));
   };
 
   return (

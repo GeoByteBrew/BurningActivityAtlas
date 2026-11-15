@@ -1,3 +1,4 @@
+// AI disclosure: contains code written or modified with a large language model (Claude, Anthropic). See AI_USE.md.
 import { anomalyGradientCss, divergeGradientCss, fireGradientCss, SENSOR_COLORS } from "../colors";
 import { fmt } from "../data";
 import type { ColorMode, Layer, Sensor } from "../types";
@@ -68,13 +69,13 @@ export default function Legend({
           </>
         ) : (
           <>
-            <span>low</span>
-            <span>mid</span>
-            <span>high (~{fmt(max)}+)</span>
+            <span>1</span>
+            <span>{fmt(Math.round(Math.sqrt(max)))}</span>
+            <span>{fmt(max)}</span>
           </>
         )}
       </div>
-      <span className="legend-sub">Colour by rank among active cells (purple → yellow → red)</span>
+      <span className="legend-sub">Colour on a log scale (95th percentile)</span>
     </div>
   );
 }

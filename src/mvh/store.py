@@ -1,3 +1,4 @@
+# AI disclosure: written or revised with a large language model (Claude, Anthropic). See AI_USE.md.
 """Partitioned storage (tile / year) and a small parallel map.
 
 Every stage reads and writes one Parquet file per processing tile (and year), so the same

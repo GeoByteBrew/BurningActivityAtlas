@@ -1,3 +1,4 @@
+// AI disclosure: contains code written or modified with a large language model (Claude, Anthropic). See AI_USE.md.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Viewer } from "cesium";
 import Globe, { type Hover } from "./cesium/Globe";

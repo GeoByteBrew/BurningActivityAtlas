@@ -34,4 +34,5 @@ old decision is marked "superseded".
 | D-27 | 2026-11-15 | First world run (2003–2025, MODIS + S-NPP) accepted as the published result, with its limits stated | Factor 4.05, held-out ratio 0.98, region-month r 1.00, yearly 0.94–1.01 after calibration; agrees with the Pix'Elles prototype (Terra+Aqua 4.14–4.28, Terra 12.2) | Accepted |
 | D-28 | 2026-11-15 | Day/night factors kept although they bring no gain at cell scale (MAE 4.39 against 4.34 pooled) | Day and night sensor ratios drift in opposite directions after 2022; to be re-examined | Open |
 | D-29 | 2026-11-15 | Total-preserving rescaling of cell factors to be added | Converted totals are 0.93–0.97 of VIIRS inside the calibration years: the backcast is about 5% low | To do |
+| D-30 | 2026-11-15 | Regional pilot removed from the repository (configuration, Occitanie boundary files, hand-made sub-region mode, outputs of the 2019 test run); unused helper functions deleted | The project is the world; the pilot remains documented in 05_version_comparison.md. A regional run = a smaller `aoi.bbox_wgs84` | Accepted |
 

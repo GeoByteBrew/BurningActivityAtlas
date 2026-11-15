@@ -1,3 +1,4 @@
+// AI disclosure: contains code written or modified with a large language model (Claude, Anthropic). See AI_USE.md.
 import { useEffect, useRef } from "react";
 import { fullRange, isFull, MONTHS, monthRange, rangeLabel, yearOf, yearRange } from "../data";
 import type { Meta, Range } from "../types";

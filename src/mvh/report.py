@@ -1,3 +1,4 @@
+# AI disclosure: written with the assistance of an AI tool (large language model). See AI_USE.md.
 """Small helpers for Markdown reports."""
 from __future__ import annotations
 

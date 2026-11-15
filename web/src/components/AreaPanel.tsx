@@ -1,3 +1,4 @@
+// AI disclosure: written with the assistance of an AI tool (large language model). See AI_USE.md.
 import { useMemo, useRef, useState } from "react";
 import { analyzeArea, polyToGeoJSON, readAreaFile, type Poly } from "../aoi";
 import { SENSOR_COLORS } from "../colors";

@@ -1,3 +1,4 @@
+// AI disclosure: contains code written or modified with a large language model (Claude, Anthropic). See AI_USE.md.
 import type { Cells, CellsMonthly, Dataset, DatasetEntry, GeoJSON, Meta, Points, Range, RegionSeries, Sensor, Series, Validation } from "./types";
 
 const BASE = `${import.meta.env.BASE_URL}data`;

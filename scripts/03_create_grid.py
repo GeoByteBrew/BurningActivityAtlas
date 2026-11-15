@@ -1,9 +1,10 @@
+# AI disclosure: written or revised with a large language model (Claude, Anthropic). See AI_USE.md.
 """Grid layers in the global EPSG:6933 grid.
 
 Regional run: sizes listed in grid.materialize_m are written as polygon layers over the AOI.
 World run (materialize_m empty): nothing is materialized — a global 5 km layer would hold
-~20 M polygons. Cells exist as integer ids; polygons are derived on demand for non-empty cells
-(mvh.grid.cells_to_polygons). This script then only reports the grid and tile layout.
+~20 M polygons. Cells exist as integer ids; their bounds are computed on demand for non-empty
+cells (mvh.grid.cell_bounds). This script then only reports the grid and tile layout.
 """
 import _bootstrap  # noqa: F401
 

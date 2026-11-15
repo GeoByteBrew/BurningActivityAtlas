@@ -1,3 +1,4 @@
+# AI disclosure: written with the assistance of an AI tool (large language model). See AI_USE.md.
 """NASA FIRMS API client (area endpoint, data availability, MAP_KEY status)."""
 from __future__ import annotations
 

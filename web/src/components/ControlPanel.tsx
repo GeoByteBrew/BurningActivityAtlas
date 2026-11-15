@@ -1,3 +1,4 @@
+// AI disclosure: contains code written or modified with a large language model (Claude, Anthropic). See AI_USE.md.
 import { SENSOR_COLORS } from "../colors";
 import { fmt } from "../data";
 import type { Basemap, ColorMode, Layer, Meta, Sensor } from "../types";

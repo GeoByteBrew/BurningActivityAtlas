@@ -1,3 +1,4 @@
+# AI disclosure: written or revised with a large language model (Claude, Anthropic). See AI_USE.md.
 """Standardization and quality control of FIRMS MODIS / VIIRS detections.
 
 Nothing is deleted here: every row gets QC flags, and `clean` subsets are derived from them.
@@ -21,19 +22,6 @@ MODIS_PLATFORM = {"T": "Terra", "TERRA": "Terra", "A": "Aqua", "AQUA": "Aqua"}
 VIIRS_PLATFORM = {"N": "S-NPP", "NPP": "S-NPP", "SNPP": "S-NPP", "SUOMI NPP": "S-NPP",
                   "N20": "NOAA-20", "1": "NOAA-20", "J1": "NOAA-20", "NOAA-20": "NOAA-20",
                   "N21": "NOAA-21", "2": "NOAA-21", "J2": "NOAA-21", "NOAA-21": "NOAA-21"}
-
-
-def read_raw_dir(directory: Path) -> pd.DataFrame:
-    files = sorted(Path(directory).glob("*.csv"))
-    frames = []
-    for f in files:
-        if f.stat().st_size == 0:
-            continue
-        df = pd.read_csv(f, dtype={"acq_time": str, "satellite": str, "confidence": str, "version": str})
-        if len(df):
-            df["raw_file"] = f.name
-            frames.append(df)
-    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
 
 def iter_raw(file: Path, chunksize: int = 1_000_000):

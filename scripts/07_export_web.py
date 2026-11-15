@@ -1,3 +1,4 @@
+# AI disclosure: written or revised with a large language model (Claude, Anthropic). See AI_USE.md.
 """Export compact JSON datasets for the web dashboard (web/public/data/<dataset>/).
 
 A dataset is one self-contained folder the app can load: an *overview* (coarse cells over the
@@ -27,6 +28,8 @@ from mvh.config import ROOT, cli, load_config, path, record_start, setup_logging
 from mvh.grid import cell_bounds, cell_label, label, parent_ids, tile_bounds
 
 log = setup_logging("07_export_web")
+AI_USE = ("Computed from NASA FIRMS detections by a pipeline whose code was written with the assistance of a "
+          "large language model (Claude, Anthropic). No value was produced by a generative model. See AI_USE.md.")
 LAYERS = {"modis": "modis_raw_n", "viirs": "viirs_n", "harm": "harm_n", "conv": "modis_as_viirs_n"}
 
 
@@ -167,7 +170,7 @@ def export_dataset(cfg, ds: dict, out, overview: bool) -> dict | None:
     else:
         cols = ["platform", "latitude", "longitude", "acq_datetime", "daynight", "frp", "region", f"q_{q}"]
         det = proc / "detections"
-        plat_order, parts, n_cut = None, [], 0
+        parts, n_cut = [], 0
         for y in years:
             fr = [store.read(det, t, y, columns=cols) for t in tiles_in(cfg, store.tiles(det), bbox) if y in store.years(det, t)]
             if not fr:
@@ -275,6 +278,7 @@ def export_dataset(cfg, ds: dict, out, overview: bool) -> dict | None:
                      for p, r in cov.iterrows()},
         "qc_summary": pd.read_csv(qcf).to_dict(orient="records") if qcf.exists() and not clipped else [],
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ"),
+        "ai_use": AI_USE,
     }
     dump(meta, out / "meta.json")
     return {"id": ds["id"], "name": meta["region_name"], "path": ds["id"], "bbox": bbox, "cell_size_m": size,

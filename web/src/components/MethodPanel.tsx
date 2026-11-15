@@ -1,3 +1,4 @@
+// AI disclosure: contains code written or modified with a large language model (Claude, Anthropic). See AI_USE.md.
 import { useEffect, useMemo, useState } from "react";
 import { SENSOR_COLORS } from "../colors";
 import { byYear, fmt, regionMonthly } from "../data";

@@ -1,3 +1,4 @@
+// AI disclosure: contains code written or modified with a large language model (Claude, Anthropic). See AI_USE.md.
 import { useEffect, useRef, useState } from "react";
 import type { Viewer } from "cesium";
 import { cellRatio, rangeLabel, regionMonthly } from "../data";

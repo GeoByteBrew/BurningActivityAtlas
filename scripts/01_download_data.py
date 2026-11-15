@@ -1,3 +1,4 @@
+# AI disclosure: written or revised with a large language model (Claude, Anthropic). See AI_USE.md.
 """Download FIRMS MODIS / VIIRS detections for the AOI bbox (resumable).
 
 Usage:

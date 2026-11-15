@@ -1,3 +1,4 @@
+# AI disclosure: written or revised with a large language model (Claude, Anthropic). See AI_USE.md.
 """Standardize raw FIRMS files, route them to processing tiles, add QC flags.
 
 Every CSV under data/raw/<region>/<SOURCE>/ (sub-folders included) is read in chunks, whatever

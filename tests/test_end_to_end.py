@@ -1,3 +1,4 @@
+# AI disclosure: written or revised with a large language model (Claude, Anthropic). See AI_USE.md.
 """End-to-end run of the pipeline scripts on a synthetic multi-tile, multi-country archive."""
 import json
 import os

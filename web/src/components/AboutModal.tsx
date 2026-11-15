@@ -1,3 +1,4 @@
+// AI disclosure: contains code written or modified with a large language model (Claude, Anthropic). See AI_USE.md.
 import { useEffect } from "react";
 import type { Meta } from "../types";
 import { FlameMark } from "./Header";
@@ -97,6 +98,11 @@ export default function AboutModal({ meta, onClose, onMethod }: { meta: Meta; on
           </span>
           <span>
             <b>Built with</b> CesiumJS, React, Python (pandas, GeoPandas) · data exported {meta.generated_at}
+          </span>
+          <span>
+            <b>AI use</b> The code and documentation were developed with the assistance of large language models (among them
+            Claude, Anthropic). All values shown are computed from NASA FIRMS data; none is AI-generated. Details: AI_USE.md
+            in the repository.
           </span>
         </div>
 

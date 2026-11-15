@@ -1,9 +1,10 @@
+# AI disclosure: written or revised with a large language model (Claude, Anthropic). See AI_USE.md.
 """Configuration loading and project paths.
 
 The active configuration is chosen, in this order, by: the `path` argument, `--config` on the
 command line (see `cli`), the MVH_CONFIG environment variable, then config/config.yaml (the world).
 A config file may start from another one with `extends: <file>`; values are deep-merged, so
-config/world_test_2019.yaml and config/iberia.yaml only list what differs from the world run.
+config/world_test_2019.yaml and config/multi_year.yaml only list what differs from the default.
 """
 from __future__ import annotations
 
@@ -52,10 +53,6 @@ def cli(description: str | None = None) -> argparse.ArgumentParser:
     ap.add_argument("--jobs", type=int, default=None, help="worker processes (default: run.jobs in the config)")
     ap.add_argument("--force", action="store_true", help="rebuild outputs that already exist")
     return ap
-
-
-def is_global(cfg: dict) -> bool:
-    return cfg["aoi"].get("mode", "parts") == "countries" and not cfg["aoi"].get("clip", True)
 
 
 def record_start(cfg: dict) -> str:

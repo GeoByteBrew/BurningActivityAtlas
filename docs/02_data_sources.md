@@ -20,7 +20,7 @@ apart in QC through the `source` field.
 - **Archive download (recommended for the world):** firms.modaps.eosdis.nasa.gov/download, yearly files per
   instrument. The API route for the world means several hundred thousand requests; the archive is a few
   dozen files. CSVs of any extent placed in `data/raw/<region>/<SOURCE>/` are read by the QC step, which
-  routes every row to its tile itself. Check that the archive files carry the `type` column (SP products):
+  routes every row to its tile itself. The archive files must carry the `type` column (SP products):
   without it static sources cannot be excluded and `f_type_known` is false.
 
 ## 2. Fields and standard schema
@@ -69,6 +69,4 @@ FIRMS does **not** distribute the 750 m product. The source is LAADS DAAC (https
 Default (world, `config/config.yaml`): every Natural Earth country, with its UN sub-region as super-region
 (`data/aoi/world_regions.gpkg`, built by `scripts/00_prepare_aoi.py`).
 
-The regional configuration (`config/iberia.yaml`) uses Portugal + Spain + Occitanie (`data/aoi/aoi.geojson`, built by
-`scripts/00_prepare_aoi.py`): Natural Earth country borders and the Occitanie region border from
-`gregoiredavid/france-geojson` (IGN and OSM based, open data).
+Country borders: Natural Earth 1:10m admin-0 (public domain), stored in `data/aoi/`.

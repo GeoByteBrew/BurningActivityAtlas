@@ -1,3 +1,4 @@
+// AI disclosure: written with the assistance of an AI tool (large language model). See AI_USE.md.
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { viteStaticCopy } from "vite-plugin-static-copy";
