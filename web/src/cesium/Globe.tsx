@@ -330,6 +330,13 @@ export default function Globe(props: Props) {
     };
     const removeClamp = scene.postRender.addEventListener(clampPitch);
     viewerRef.current = viewer;
+    // Fire-data source (basemap credits alone omit FIRMS)
+    viewer.creditDisplay.addStaticCredit(
+      new Credit(
+        '<a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" rel="noopener noreferrer">Fire detections © NASA FIRMS</a> · MODIS MCD14ML · VIIRS VNP14IMG',
+        true,
+      ),
+    );
     cb.current.onReady?.(viewer);
 
     const aoi = new CustomDataSource("aoi");
