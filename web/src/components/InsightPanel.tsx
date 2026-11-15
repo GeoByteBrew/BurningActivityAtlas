@@ -232,14 +232,18 @@ export default function InsightPanel({ data, region, range, sensor, colorMode, s
         )}
       </section>
 
-      <section data-chart="calendar">
-        <div className="sec-head">
-          <h3>Burning Activity Calendar</h3>
-          <span className="tag">{harm && colorMode === "anomaly" ? "ratio to normal" : mainLabel}</span>
-        </div>
-        <CalendarHeatmap years={years} grid={grid} normal={harm && colorMode === "anomaly" ? rm.median : null} isInRange={calInRange} onPick={pickCal} />
-        <p className="help small">Click a month to select it, or a year label to select the whole year. Replaces a separate monthly chart.</p>
-      </section>
+      {harm && colorMode === "anomaly" && (
+        <section data-chart="calendar">
+          <div className="sec-head">
+            <h3>Burning Activity Calendar</h3>
+            <span className="tag">ratio to normal</span>
+          </div>
+          <CalendarHeatmap years={years} grid={grid} normal={rm.median} isInRange={calInRange} onPick={pickCal} />
+          <p className="help small">
+            Shown for ratio-to-normal only — raw counts wash out to one colour. Click a month or a year label to select it.
+          </p>
+        </section>
+      )}
     </>
   );
 }
