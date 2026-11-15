@@ -119,8 +119,12 @@ export default function App() {
   const skipNextFit = useRef(false);
   const datasetIdRef = useRef(datasetId);
   const switchingRef = useRef(switching);
+  const regionRef = useRef(region);
+  const countryRef = useRef(country);
   datasetIdRef.current = datasetId;
   switchingRef.current = switching;
+  regionRef.current = region;
+  countryRef.current = country;
 
   const pickDataset = useCallback((id: string, reason: "manual" | "zoom" = "manual") => {
     if (id === datasetIdRef.current) return;
@@ -207,8 +211,19 @@ export default function App() {
         setCell(null);
         setPoint(null);
         setPoints(null);
-        setRegion("All");
-        setCountry("All");
+        // Keep region/country across LOD swaps (50↔25 km). Reset only when the new
+        // dataset does not contain them; on detail windows, promote a known country to Region.
+        const prevR = regionRef.current;
+        const prevC = countryRef.current;
+        let nextR = prevR === "All" || d.meta.regions.includes(prevR) ? prevR : "All";
+        let nextC = "All";
+        if (nextR !== "All" && prevC !== "All" && d.meta.region_countries?.[nextR]?.includes(prevC)) nextC = prevC;
+        else if (nextR === "All" && prevC !== "All" && d.meta.regions.includes(prevC)) {
+          nextR = prevC;
+          nextC = "All";
+        }
+        setRegion(nextR);
+        setCountry(nextC);
         if (d.meta.points === false) setLayer("grid");
         setData((prev) => {
           // keep the selected period when both datasets cover the same years
