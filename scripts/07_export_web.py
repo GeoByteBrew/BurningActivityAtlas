@@ -90,6 +90,8 @@ def export_dataset(cfg, ds: dict, out, overview: bool) -> dict | None:
     log.info("dataset %s: %s cells, kind=%s, regions = %s, bbox %s", ds["id"], label(size), kind, level, bbox)
 
     # ---- cell × month table inside the bbox, at the dataset's cell size
+    # overview (super): keep UN sub-region + country so the UI can drill into countries
+    dual = level == "super"
     mroot = harm / f"monthly_{label(fs)}"
     tiles = tiles_in(cfg, store.tiles(mroot), bbox)
     frames, cframes = [], []
@@ -101,27 +103,44 @@ def export_dataset(cfg, ds: dict, out, overview: bool) -> dict | None:
             cx, cy = ((b["w"] + b["e"]) / 2).to_numpy(), ((b["s"] + b["n"]) / 2).to_numpy()
             c = c[(cx >= bbox[0]) & (cx <= bbox[2]) & (cy >= bbox[1]) & (cy <= bbox[3])]
             m = m[m["cell_id"].isin(c["cell_id"])]
-        m = m.rename(columns={level: "reg"})
-        m["reg"] = m["reg"].astype(object)
+        if dual:
+            m = m.rename(columns={"super": "reg", "region": "country"})
+            m["reg"] = m["reg"].astype(object)
+            m["country"] = m["country"].astype(object)
+            gcols = ["cell_id", "reg", "country", "year", "month"]
+        else:
+            m = m.rename(columns={level: "reg"})
+            m["reg"] = m["reg"].astype(object)
+            gcols = ["cell_id", "reg", "year", "month"]
         if size != fs:
             m["cell_id"] = parent_ids(m["cell_id"], fs, size)
             c = c.assign(cell_id=parent_ids(c["cell_id"], fs, size))
-        frames.append(m.groupby(["cell_id", "reg", "year", "month"], as_index=False, dropna=False)[list(LAYERS.values())].sum())
+        frames.append(m.groupby(gcols, as_index=False, dropna=False)[list(LAYERS.values())].sum())
         cframes.append(c)
     frames = [f for f in frames if len(f)]
     if not frames:
         log.warning("dataset %s: no harmonized data inside the bbox — skipped", ds["id"])
         return None
     m = pd.concat(frames, ignore_index=True)
-    # a coarse cell takes the region holding most of its harmonized activity
-    top = m.groupby(["cell_id", "reg"], dropna=False)["harm_n"].sum().reset_index().sort_values("harm_n", ascending=False)
-    creg = top.dropna(subset=["reg"]).drop_duplicates("cell_id").set_index("cell_id")["reg"]
+
+    def majority(col: str) -> pd.Series:
+        top = m.groupby(["cell_id", col], dropna=False)["harm_n"].sum().reset_index().sort_values("harm_n", ascending=False)
+        return top.dropna(subset=[col]).drop_duplicates("cell_id").set_index("cell_id")[col]
+
+    # a coarse cell takes the region (and country) holding most of its harmonized activity
+    creg = majority("reg")
+    ccountry = majority("country") if dual else None
     m = m.groupby(["cell_id", "year", "month"], as_index=False)[list(LAYERS.values())].sum()
     m["reg"] = m["cell_id"].map(creg)
+    if dual:
+        m["country"] = m["cell_id"].map(ccountry)
     cells = pd.concat(cframes).groupby("cell_id").agg(n_det=("n", "sum"), frp_max=("frp_max", "max")).reindex(pd.unique(m["cell_id"]))
     cells = cells.reset_index()
     cells["reg"] = cells["cell_id"].map(creg)
+    if dual:
+        cells["country"] = cells["cell_id"].map(ccountry)
     regions = sorted(r for r in cells["reg"].dropna().unique() if r != H.NO_REGION)
+    countries = sorted(r for r in cells["country"].dropna().unique() if r != H.NO_REGION) if dual else []
     cells = pd.concat([cells, cell_bounds(cells["cell_id"], size, crs)], axis=1)
     if len(cells) > wc.get("max_cells", 80000):
         log.warning("dataset %s has %d cells (> web.max_cells): the browser will be slow — use a larger cell_m or a smaller bbox",
@@ -142,11 +161,18 @@ def export_dataset(cfg, ds: dict, out, overview: bool) -> dict | None:
         return np.round(a).astype(int).ravel().tolist()
 
     ridx = {r: i for i, r in enumerate(regions)}
-    dump({"size_m": size, "regions": regions, "id": cell_label(cells["cell_id"], size).tolist(),
-          "w": cells["w"].tolist(), "s": cells["s"].tolist(), "e": cells["e"].tolist(), "n": cells["n"].tolist(),
-          "region": [ridx.get(r, -1) for r in cells["reg"]],
-          "frp_max": cells["frp_max"].round(1).fillna(0).tolist(),
-          "modis_m": season("modis_raw_n"), "viirs_m": season("viirs_n")}, out / "cells.json")
+    cidx = {r: i for i, r in enumerate(countries)} if dual else {}
+    cells_out = {
+        "size_m": size, "regions": regions, "id": cell_label(cells["cell_id"], size).tolist(),
+        "w": cells["w"].tolist(), "s": cells["s"].tolist(), "e": cells["e"].tolist(), "n": cells["n"].tolist(),
+        "region": [ridx.get(r, -1) for r in cells["reg"]],
+        "frp_max": cells["frp_max"].round(1).fillna(0).tolist(),
+        "modis_m": season("modis_raw_n"), "viirs_m": season("viirs_n"),
+    }
+    if dual:
+        cells_out["countries"] = countries
+        cells_out["country"] = [cidx.get(r, -1) for r in cells["country"]]
+    dump(cells_out, out / "cells.json")
 
     def sparse(col, digits):
         s = m[m[col] != 0]
@@ -166,12 +192,25 @@ def export_dataset(cfg, ds: dict, out, overview: bool) -> dict | None:
     parent = dict(zip(reg_file["name"], reg_file["parent"])) if "parent" in reg_file else {}
     # mid-scale windows stay grid-only; detections belong on the 5 km detail datasets
     has_points = kind == "detail" and ds.get("points", True) and size <= fs
-    if overview or kind == "overview" or not has_points:
-        rm = store.read_all(agg / "region_month")
-        rm["reg"] = rm["region"].map(parent) if level == "super" else rm["region"]
-        if clipped:
-            rm = rm[rm["reg"].isin(regions)]
-        rm = rm.groupby(["reg", "year", "month", "platform"], as_index=False)[["n", "frp"]].sum()
+    rm_country = None
+    if overview or kind == "overview" or kind == "coarse" or not has_points:
+        rm_src = store.read_all(agg / "region_month")
+        if dual:
+            # keep country-level rows for drill-down series; aggregate to super for the region list
+            rm_country = rm_src.copy()
+            rm_country["reg"] = rm_country["region"]
+            if countries:
+                rm_country = rm_country[rm_country["reg"].isin(countries)]
+            rm_country = rm_country.groupby(["reg", "year", "month", "platform"], as_index=False)[["n", "frp"]].sum()
+            rm = rm_src.copy()
+            rm["reg"] = rm["region"].map(parent)
+            rm = rm.groupby(["reg", "year", "month", "platform"], as_index=False)[["n", "frp"]].sum()
+        else:
+            rm = rm_src.copy()
+            rm["reg"] = rm["region"].map(parent) if level == "super" else rm["region"]
+            if clipped:
+                rm = rm[rm["reg"].isin(regions)]
+            rm = rm.groupby(["reg", "year", "month", "platform"], as_index=False)[["n", "frp"]].sum()
     else:
         cols = ["platform", "latitude", "longitude", "acq_datetime", "daynight", "frp", "region", f"q_{q}"]
         det = proc / "detections"
@@ -196,8 +235,11 @@ def export_dataset(cfg, ds: dict, out, overview: bool) -> dict | None:
         rm = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(columns=["reg", "year", "month", "platform", "n", "frp"])
         ds["_cut"] = n_cut
     platforms = sorted(rm["platform"].unique(), key=lambda p: (p not in modis_pl, p))
-    rm["ym"] = pd.PeriodIndex.from_fields(year=rm["year"], month=rm["month"], freq="M").astype(str)
-    rm["group"] = np.where(rm["platform"].isin(modis_pl), "modis", np.where(rm["platform"] == ref, "viirs", "other"))
+    for frame in (rm, rm_country):
+        if frame is None or not len(frame):
+            continue
+        frame["ym"] = pd.PeriodIndex.from_fields(year=frame["year"], month=frame["month"], freq="M").astype(str)
+        frame["group"] = np.where(frame["platform"].isin(modis_pl), "modis", np.where(frame["platform"] == ref, "viirs", "other"))
 
     av = pd.read_csv(harm / "availability.csv", parse_dates=["date"])
     okc = [c for c in av.columns if c.startswith("ok_")]
@@ -205,18 +247,24 @@ def export_dataset(cfg, ds: dict, out, overview: bool) -> dict | None:
         .reindex(mkeys, fill_value=0).astype(int).tolist()
     m["ym"] = np.array(mkeys)[m["k"].to_numpy()]
 
-    series = {"months": mkeys, "platforms": platforms, "regions": {}}
-    for r in ["All"] + regions:
-        sub = rm if r == "All" else rm[rm["reg"] == r]
-        hs = m if r == "All" else m[m["reg"] == r]
-        per = lambda d, col: d.groupby("ym")[col].sum().reindex(mkeys, fill_value=0)  # noqa: E731
-        h = per(hs, "harm_n")
-        series["regions"][r] = {
-            "count": {p: per(sub[sub["platform"] == p], "n").astype(int).tolist() for p in platforms},
-            "frp": {g: per(sub[sub["group"] == g], "frp").round(1).tolist() for g in ("modis", "viirs")},
-            "harm": h.round(1).tolist(), "conv": per(hs, "modis_as_viirs_n").round(1).tolist(),
-            "median": calendar_median(h.to_numpy(), mkeys, set(base_years)), "days": days,
-        }
+    def fill_series(keys: list[str], counts: pd.DataFrame, place_col: str):
+        out = {}
+        for r in keys:
+            sub = counts if r == "All" else counts[counts["reg"] == r]
+            hs = m if r == "All" else m[m[place_col] == r]
+            per = lambda d, col: d.groupby("ym")[col].sum().reindex(mkeys, fill_value=0)  # noqa: E731
+            h = per(hs, "harm_n")
+            out[r] = {
+                "count": {p: per(sub[sub["platform"] == p], "n").astype(int).tolist() for p in platforms},
+                "frp": {g: per(sub[sub["group"] == g], "frp").round(1).tolist() for g in ("modis", "viirs")},
+                "harm": h.round(1).tolist(), "conv": per(hs, "modis_as_viirs_n").round(1).tolist(),
+                "median": calendar_median(h.to_numpy(), mkeys, set(base_years)), "days": days,
+            }
+        return out
+
+    series = {"months": mkeys, "platforms": platforms, "regions": fill_series(["All"] + regions, rm, "reg")}
+    if dual and rm_country is not None and countries:
+        series["regions"].update(fill_series(countries, rm_country, "country"))
     dump(series, out / "series.json")
 
     # ---- validation tables (domain-wide fit; regional rows limited to this dataset's regions)
@@ -243,16 +291,34 @@ def export_dataset(cfg, ds: dict, out, overview: bool) -> dict | None:
         "outages": records(harm / "outages_used.csv"),
     }, out / "validation.json")
 
-    # ---- region outlines
-    g = reg_file
-    if level == "super":
-        g = g.dissolve("parent").reset_index().rename(columns={"parent": "name", "name": "_n"})
-    g = g[g["name"].isin(regions)]
+    # ---- region outlines (super dissolve + countries when dual)
+    simp = 0.02 if overview or kind in ("overview", "coarse") else 0.004
+    if dual:
+        # dissolve only geometry by parent — country `name` would otherwise duplicate the column
+        supers = reg_file[["parent", "geometry"]].dissolve("parent").reset_index().rename(columns={"parent": "name"})
+        supers = supers[supers["name"].isin(regions)].assign(level="super", parent=pd.NA)
+        ctr = reg_file[reg_file["name"].isin(countries)][["name", "parent", "geometry"]].copy()
+        ctr = ctr.assign(level="country")
+        g = gpd.GeoDataFrame(
+            pd.concat([supers[["name", "parent", "level", "geometry"]],
+                       ctr[["name", "parent", "level", "geometry"]]], ignore_index=True),
+            geometry="geometry", crs=reg_file.crs,
+        )
+    else:
+        g = reg_file[reg_file["name"].isin(regions)].copy()
+        g = g.assign(level="region", parent=g["parent"] if "parent" in g else None)
+        keep = [c for c in ("name", "parent", "level", "geometry") if c in g.columns]
+        g = g[keep]
     # Gentle simplify: coarse 0.08° made country borders look like zig-zags on the globe.
-    g = g.assign(geometry=g.geometry.intersection(box(*bbox)).simplify(0.02 if overview else 0.004, preserve_topology=True))
-    aoi_json = json.loads(g[~g.geometry.is_empty][["name", "geometry"]].to_json())
+    g = g.assign(geometry=g.geometry.intersection(box(*bbox)).simplify(simp, preserve_topology=True))
+    g = g[~g.geometry.is_empty]
+    aoi_json = json.loads(g.to_json())
     for feat in aoi_json["features"]:
         feat.pop("id", None)
+        props = feat.get("properties") or {}
+        if props.get("parent") is None:
+            props.pop("parent", None)
+        feat["properties"] = props
     dump(aoi_json, out / "aoi.json")
 
     # ---- detection points per year (detail windows)
@@ -286,6 +352,16 @@ def export_dataset(cfg, ds: dict, out, overview: bool) -> dict | None:
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ"),
         "ai_use": AI_USE,
     }
+    if dual:
+        region_countries: dict[str, list[str]] = {r: [] for r in regions}
+        for cname in countries:
+            p = parent.get(cname)
+            if p in region_countries:
+                region_countries[p].append(cname)
+        for r in region_countries:
+            region_countries[r].sort()
+        meta["countries"] = countries
+        meta["region_countries"] = region_countries
     dump(meta, out / "meta.json")
     return {"id": ds["id"], "name": meta["region_name"], "path": ds["id"], "bbox": bbox, "cell_size_m": size,
             "kind": kind, "n_cells": len(cells)}

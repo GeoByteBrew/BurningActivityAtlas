@@ -1,6 +1,22 @@
 // AI disclosure: contains code written or modified with a large language model (Claude, Anthropic). See AI_USE.md.
 import type { Cells, CellsMonthly, Dataset, DatasetEntry, GeoJSON, Meta, Points, Range, RegionSeries, Sensor, Series, Validation } from "./types";
 
+/** Series / UI place key: a country when drilled in, otherwise the region (or "All"). */
+export function placeKey(region: string, country: string): string {
+  return country !== "All" ? country : region;
+}
+
+/** Whether cell i belongs to the selected region / country filter. */
+export function cellInPlace(cells: Cells, i: number, region: string, country = "All"): boolean {
+  if (country !== "All" && cells.countries && cells.country) {
+    const ci = cells.countries.indexOf(country);
+    return ci >= 0 && cells.country[i] === ci;
+  }
+  if (region === "All") return true;
+  const ri = cells.regions.indexOf(region);
+  return ri >= 0 && cells.region[i] === ri;
+}
+
 const BASE = `${import.meta.env.BASE_URL}data`;
 
 /** True when a body looks like JSON (Vite SPA fallback returns 200 HTML for missing /data/*.json). */

@@ -1,12 +1,13 @@
 // AI disclosure: contains code written or modified with a large language model (Claude, Anthropic). See AI_USE.md.
 import { useEffect, useRef, useState } from "react";
 import type { Viewer } from "cesium";
-import { cellRatio, rangeLabel, regionMonthly } from "../data";
+import { cellInPlace, cellRatio, placeKey, rangeLabel, regionMonthly } from "../data";
 import type { Dataset, Range, Sensor } from "../types";
 
 interface Props {
   data: Dataset;
   region: string;
+  country?: string;
   range: Range;
   sensor: Sensor;
   values: Float64Array;
@@ -52,14 +53,15 @@ async function svgImage(svg: SVGSVGElement): Promise<HTMLImageElement> {
 
 const canvasBlob = (c: HTMLCanvasElement) => new Promise<Blob>((res) => c.toBlob((b) => res(b!), "image/png"));
 
-export default function DownloadMenu({ data, region, range, sensor, values, medians, getViewer }: Props) {
+export default function DownloadMenu({ data, region, country = "All", range, sensor, values, medians, getViewer }: Props) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const { meta, cells } = data;
+  const place = placeKey(region, country);
   const label = rangeLabel(meta, range);
-  const slug = `${region === "All" ? "iberia-occitanie" : region.toLowerCase()}_${label.replace(/[^\w]+/g, "-")}`;
-  const title = `${meta.title} · ${region === "All" ? meta.region_name : region} · ${label}`;
+  const slug = `${place === "All" ? "world" : place.toLowerCase()}_${label.replace(/[^\w]+/g, "-")}`;
+  const title = `${meta.title} · ${place === "All" ? meta.region_name : place} · ${label}`;
 
   useEffect(() => {
     if (!open) return;
@@ -85,7 +87,7 @@ export default function DownloadMenu({ data, region, range, sensor, values, medi
   };
 
   const seriesCsv = () => {
-    const rm = regionMonthly(meta, data.series.regions[region] ?? data.series.regions.All);
+    const rm = regionMonthly(meta, data.series.regions[place] ?? data.series.regions.All);
     const rows: (string | number)[][] = [
       ["month", "harmonized", "normal_median", "ratio_to_normal", "modis_raw_terra_aqua", `viirs_raw_${meta.reference_platform}`, "modis_converted_viirs_eq", "days_available"],
     ];
@@ -106,14 +108,15 @@ export default function DownloadMenu({ data, region, range, sensor, values, medi
   };
 
   const cellsCsv = () => {
-    const rIdx = region === "All" ? -2 : cells.regions.indexOf(region);
-    const rows: (string | number)[][] = [["cell_id", "region", "lat", "lon", `${sensor}_detections`, "normal_baseline_mean", "ratio_to_normal_damped"]];
+    const rows: (string | number)[][] = [["cell_id", "region", "country", "lat", "lon", `${sensor}_detections`, "normal_baseline_mean", "ratio_to_normal_damped"]];
     for (let i = 0; i < cells.id.length; i++) {
-      if (rIdx !== -2 && cells.region[i] !== rIdx) continue;
+      if (!cellInPlace(cells, i, region, country)) continue;
       if (values[i] === 0 && medians[i] === 0) continue;
+      const cname = cells.countries && cells.country ? (cells.countries[cells.country[i]] ?? "") : "";
       rows.push([
         cells.id[i],
         cells.regions[cells.region[i]] ?? "",
+        cname,
         +((cells.s[i] + cells.n[i]) / 2).toFixed(4),
         +((cells.w[i] + cells.e[i]) / 2).toFixed(4),
         +values[i].toFixed(2),

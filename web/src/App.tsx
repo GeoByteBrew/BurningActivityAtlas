@@ -16,6 +16,7 @@ import MethodPanel from "./components/MethodPanel";
 import Timeline from "./components/Timeline";
 import { robustMax } from "./colors";
 import {
+  cellInPlace,
   cellRangeMedians,
   cellRangeValues,
   fullRange,
@@ -24,6 +25,7 @@ import {
   loadIndex,
   loadPoints,
   monthRange,
+  placeKey,
   rangeLen,
   sum,
   yearOf,
@@ -87,6 +89,7 @@ export default function App() {
   const [layer, setLayer] = useState<Layer>("grid");
   const [range, setRange] = useState<Range>({ start: 0, end: 0 });
   const [region, setRegion] = useState("All");
+  const [country, setCountry] = useState("All");
   const [basemap, setBasemap] = useState<Basemap>("dark");
   const [cell, setCell] = useState<number | null>(null);
   const [point, setPoint] = useState<PickedPoint | null>(null);
@@ -205,6 +208,7 @@ export default function App() {
         setPoint(null);
         setPoints(null);
         setRegion("All");
+        setCountry("All");
         if (d.meta.points === false) setLayer("grid");
         setData((prev) => {
           // keep the selected period when both datasets cover the same years
@@ -310,7 +314,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meta, layer, y0, y1]);
 
-  useEffect(() => setHover(null), [layer, sensor, colorMode, range, region]);
+  useEffect(() => setHover(null), [layer, sensor, colorMode, range, region, country]);
 
   const step = useCallback((dir: 1 | -1) => meta && setRange((r) => shift(meta, r, dir)), [meta]);
 
@@ -364,35 +368,33 @@ export default function App() {
   const sharedCountMax = useMemo(() => {
     if (!data) return 1;
     const c = data.cells;
-    const rIdx = region === "All" ? -2 : c.regions.indexOf(region);
     const layers = ["modis", "viirs", "harm"] as const;
     const abs: number[] = [];
     for (const s of layers) {
       if (s === "harm" && !data.meta.harmonized) continue;
       const vals = cellRangeValues(data, s, range);
       for (let i = 0; i < c.id.length; i++) {
-        if (rIdx !== -2 && c.region[i] !== rIdx) continue;
+        if (!cellInPlace(c, i, region, country)) continue;
         if (vals[i] !== 0) abs.push(Math.abs(vals[i]));
       }
     }
     return robustMax(abs, 0.95);
-  }, [data, range, region]);
+  }, [data, range, region, country]);
 
   const legendMax = useMemo(() => {
     if (!data) return 0;
     if (sensor === "diff" || sensor === "convdiff") {
       const c = data.cells;
-      const rIdx = region === "All" ? -2 : c.regions.indexOf(region);
       const abs: number[] = [];
       for (let i = 0; i < c.id.length; i++) {
-        if (rIdx !== -2 && c.region[i] !== rIdx) continue;
+        if (!cellInPlace(c, i, region, country)) continue;
         if (values[i] !== 0) abs.push(Math.abs(values[i]));
       }
       return robustMax(abs, 0.95);
     }
     if (sensor === "harm" && colorMode === "anomaly") return 0;
     return sharedCountMax;
-  }, [data, values, region, sensor, colorMode, sharedCountMax]);
+  }, [data, values, region, country, sensor, colorMode, sharedCountMax]);
 
   const closeAbout = useCallback(() => {
     localStorage.setItem(SEEN_KEY, "1");
@@ -401,8 +403,14 @@ export default function App() {
 
   const chooseRegion = (r: string) => {
     setRegion(r);
+    setCountry("All");
     setCell(null);
   };
+  const chooseCountry = (c: string) => {
+    setCountry(c);
+    setCell(null);
+  };
+  const insightPlace = placeKey(region, country);
 
   const storyReady = !!meta && meta.harmonized && meta.regions.includes(STORY.region) && meta.years.includes(STORY.year);
   const playStory = () => {
@@ -416,6 +424,7 @@ export default function App() {
     setColorMode("anomaly");
     setLayer("grid");
     setRegion(STORY.region);
+    setCountry("All");
     setRange(monthRange(meta, STORY.year, STORY.month));
     if (mobile) setSheet(null);
   };
@@ -467,6 +476,7 @@ export default function App() {
         layer={layer}
         range={range}
         region={region}
+        country={country}
         basemap={basemap}
         values={values}
         countMax={sharedCountMax}
@@ -504,6 +514,7 @@ export default function App() {
         <DownloadMenu
           data={data}
           region={region}
+          country={country}
           range={range}
           sensor={sensor}
           values={values}
@@ -518,11 +529,13 @@ export default function App() {
         colorMode={colorMode}
         layer={layer}
         region={region}
+        country={country}
         regionTotals={regionTotals}
         setSensor={setSensor}
         setColorMode={setColorMode}
         setLayer={setLayer}
         setRegion={chooseRegion}
+        setCountry={chooseCountry}
       />
 
       {/* keyed by content so a new cell or detection starts at the top of the panel */}
@@ -546,7 +559,7 @@ export default function App() {
             onClose={() => setAreaOpen(false)}
           />
         ) : (
-          <InsightPanel data={data} region={region} range={range} sensor={sensor} colorMode={colorMode} setRange={setRange} />
+          <InsightPanel data={data} region={insightPlace} range={range} sensor={sensor} colorMode={colorMode} setRange={setRange} />
         )}
       </aside>
 
@@ -643,7 +656,7 @@ export default function App() {
       {method && (
         <MethodPanel
           data={data}
-          region={region}
+          region={insightPlace}
           hasConv={!!data.monthly.conv}
           onClose={() => setMethod(false)}
           onShowMap={(s) => {

@@ -25,7 +25,7 @@ import {
   UrlTemplateImageryProvider,
   Viewer,
 } from "cesium";
-import { cellRatio, fmt, fmtRatio, inRange } from "../data";
+import { cellInPlace, cellRatio, fmt, fmtRatio, inRange, placeKey } from "../data";
 import { anomalyRgb, divergeRgb, fireRgb, logNorm, robustMax, SENSOR_COLORS } from "../colors";
 import type { Basemap, ColorMode, Dataset, Layer, PickedPoint, PointSet, Range, Sensor } from "../types";
 import { polyBbox, type Poly } from "../aoi";
@@ -44,6 +44,8 @@ interface Props {
   layer: Layer;
   range: Range;
   region: string;
+  /** Country within a UN sub-region (world dual-hierarchy); "All" = whole region. */
+  country?: string;
   basemap: Basemap;
   /** per-cell totals over the range for the active sensor view */
   values: Float64Array;
@@ -136,23 +138,21 @@ function percentile(sorted: number[], p: number): number {
  * are dropped by distance from the ECEF median; nearby secondary landmasses (NZ next to
  * Australia) stay within 2× the 90th-percentile radius.
  */
-function regionCoreRect(data: Dataset, region: string): Rectangle {
-  if (region === "All") return Rectangle.fromDegrees(...data.meta.bbox);
+function regionCoreRect(data: Dataset, region: string, country = "All"): Rectangle {
+  if (region === "All" && country === "All") return Rectangle.fromDegrees(...data.meta.bbox);
 
+  const place = placeKey(region, country);
   const c = data.cells;
-  const rIdx = c.regions.indexOf(region);
   const lons: number[] = [];
   const lats: number[] = [];
-  if (rIdx >= 0) {
-    for (let i = 0; i < c.id.length; i++) {
-      if (c.region[i] !== rIdx) continue;
-      if (c.e[i] < c.w[i]) continue;
-      lons.push((c.w[i] + c.e[i]) / 2);
-      lats.push((c.s[i] + c.n[i]) / 2);
-    }
+  for (let i = 0; i < c.id.length; i++) {
+    if (!cellInPlace(c, i, region, country)) continue;
+    if (c.e[i] < c.w[i]) continue;
+    lons.push((c.w[i] + c.e[i]) / 2);
+    lats.push((c.s[i] + c.n[i]) / 2);
   }
   if (lons.length < 3) {
-    const f = data.aoi.features.find((x) => x.properties.name === region);
+    const f = data.aoi.features.find((x) => x.properties.name === place);
     if (!f) return Rectangle.fromDegrees(...data.meta.bbox);
     const visit = (node: unknown): void => {
       if (Array.isArray(node) && typeof node[0] === "number") {
@@ -241,9 +241,9 @@ function flyToRect(viewer: Viewer, rect: Rectangle, duration: number) {
   });
 }
 
-/** Prefer the core cell bbox; used for region changes and initial view. */
-function regionRect(data: Dataset, region: string): Rectangle {
-  return regionCoreRect(data, region);
+/** Prefer the core cell bbox; used for region / country changes and initial view. */
+function regionRect(data: Dataset, region: string, country = "All"): Rectangle {
+  return regionCoreRect(data, region, country);
 }
 
 /** Soften over-simplified country rings (Chaikin) so borders look less zig-zag. */
@@ -267,6 +267,7 @@ function smoothRing(ring: number[][], passes = 2): number[][] {
 
 export default function Globe(props: Props) {
   const { data, sensor, colorMode, layer, range, region, basemap, values, countMax, medians, points, selectedCell } = props;
+  const country = props.country ?? "All";
   const container = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
   const gridRef = useRef<Primitive | null>(null);
@@ -341,7 +342,7 @@ export default function Globe(props: Props) {
     const pts = scene.primitives.add(new PointPrimitiveCollection()) as PointPrimitiveCollection;
     pointsRef.current = pts;
 
-    flyToRect(viewer, regionRect(cb.current.data, cb.current.region), 0);
+    flyToRect(viewer, regionRect(cb.current.data, cb.current.region, cb.current.country ?? "All"), 0);
 
     const handler = new ScreenSpaceEventHandler(scene.canvas);
     const describe = (picked: { id?: unknown } | undefined) => {
@@ -390,7 +391,11 @@ export default function Globe(props: Props) {
         if (id?.kind === "cell") {
           const c = p.data.cells;
           const v = p.values[id.i!];
-          const r = c.regions[c.region[id.i!]] ?? "Outside AOI";
+          const i = id.i!;
+          const r =
+            (c.countries && c.country && c.country[i] >= 0 ? c.countries[c.country[i]] : null) ??
+            c.regions[c.region[i]] ??
+            "Outside AOI";
           const isDiff = p.sensor === "diff" || p.sensor === "convdiff";
           const sign = isDiff && v > 0 ? "+" : "";
           const anomaly = p.sensor === "harm" && p.colorMode === "anomaly";
@@ -439,14 +444,34 @@ export default function Globe(props: Props) {
     v.imageryLayers.addImageryProvider(basemapProvider(basemap));
   }, [basemap]);
 
-  // ---- region outlines + camera
+  // ---- region / country outlines
   useEffect(() => {
     const v = viewerRef.current;
     const ds = aoiRef.current;
     if (!v || !ds) return;
     ds.entities.removeAll();
+    const dual = data.aoi.features.some((f) => f.properties.level === "country" || f.properties.level === "super");
     for (const f of data.aoi.features) {
-      const active = region === "All" || region === f.properties.name;
+      const level = f.properties.level ?? "region";
+      const name = f.properties.name;
+      const parent = f.properties.parent;
+      let active = false;
+      let show = true;
+      if (!dual) {
+        active = region === "All" || region === name;
+      } else if (region === "All") {
+        if (level !== "super") continue;
+        active = true;
+      } else if (country === "All") {
+        if (level === "country" && parent === region) active = true;
+        else if (level === "super" && name === region) active = false;
+        else continue;
+      } else {
+        if (level !== "country" || parent !== region) continue;
+        active = name === country;
+        show = true;
+      }
+      if (!show) continue;
       const polys = (f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates) as number[][][][];
       for (const poly of polys) {
         const ring = smoothRing(poly[0]);
@@ -454,14 +479,14 @@ export default function Globe(props: Props) {
         ds.entities.add({
           polyline: {
             positions: Cartesian3.fromDegreesArrayHeights(ring.flatMap(([x, y]) => [x, y, 150])),
-            width: active ? 1.5 : 0.8,
+            width: active ? (country !== "All" ? 2.2 : 1.5) : 0.8,
             arcType: ArcType.GEODESIC,
             material: Color.WHITE.withAlpha(active ? 0.55 : 0.16),
           },
         });
       }
     }
-  }, [data, region]);
+  }, [data, region, country]);
 
   // ---- user area (analyze your area): finished polygon + vertices being drawn
   const { area, draft, drawMode } = props;
@@ -523,8 +548,8 @@ export default function Globe(props: Props) {
       props.skipNextFitRef.current = false;
       return;
     }
-    flyToRect(v, regionRect(data, region), 1.6);
-  }, [data, region, props.skipNextFitRef]);
+    flyToRect(v, regionRect(data, region, country), 1.6);
+  }, [data, region, country, props.skipNextFitRef]);
 
   // ---- flat 2D coloured cells (choropleth) — no extruded columns
   useEffect(() => {
@@ -534,13 +559,12 @@ export default function Globe(props: Props) {
     const paint = (on: boolean) => cb.current.onPaint?.(on);
     const c = data.cells;
     const N = c.id.length;
-    const rIdx = region === "All" ? -2 : c.regions.indexOf(region);
     const anomaly = sensor === "harm" && colorMode === "anomaly";
     const heights = new Float64Array(N);
     const keep = new Uint8Array(N);
     const absVals: number[] = [];
     for (let i = 0; i < N; i++) {
-      if (rIdx !== -2 && c.region[i] !== rIdx) continue;
+      if (!cellInPlace(c, i, region, country)) continue;
       // in anomaly mode, normally-active cells that stayed quiet are shown as flat blue tiles
       if (values[i] !== 0 || (anomaly && medians[i] >= 1)) keep[i] = 1;
       if (values[i] !== 0) absVals.push(Math.abs(values[i]));
@@ -641,7 +665,7 @@ export default function Globe(props: Props) {
         gridRef.current = old;
       }
     };
-  }, [data, sensor, colorMode, values, countMax, medians, region, layer]);
+  }, [data, sensor, colorMode, values, countMax, medians, region, country, layer]);
 
   // ---- phone: bring the selected cell into the upper, uncovered part of the screen
   useEffect(() => {
@@ -682,7 +706,7 @@ export default function Globe(props: Props) {
         outlineWidth: 3,
       },
     });
-  }, [selectedCell, data, values, colorMode, region, layer]);
+  }, [selectedCell, data, values, colorMode, region, country, layer]);
 
   // ---- detection points
   useEffect(() => {
@@ -691,7 +715,9 @@ export default function Globe(props: Props) {
     pts.removeAll();
     if (layer !== "points" || !points) return;
     const modis = new Set(data.meta.modis_platforms.map((p) => data.meta.platforms.indexOf(p)));
-    const rIdx = region === "All" ? -2 : data.meta.regions.indexOf(region);
+    // detail windows tag points with the country/region index in meta.regions
+    const place = placeKey(region, country);
+    const rIdx = place === "All" ? -2 : data.meta.regions.indexOf(place);
     const cM = Color.fromCssColorString(SENSOR_COLORS.modis).withAlpha(0.85);
     const cV = Color.fromCssColorString(SENSOR_COLORS.viirs).withAlpha(0.85);
     const scale = new NearFarScalar(1.5e5, 1.8, 3.5e6, 0.6);
@@ -709,7 +735,7 @@ export default function Globe(props: Props) {
         id: { kind: "pt", i: k },
       });
     }
-  }, [points, sensor, layer, region, data, range]);
+  }, [points, sensor, layer, region, country, data, range]);
 
   return <div ref={container} className="globe" />;
 }

@@ -10,11 +10,13 @@ interface Props {
   colorMode: ColorMode;
   layer: Layer;
   region: string;
+  country: string;
   regionTotals: Record<string, number>;
   setSensor: (s: Sensor) => void;
   setColorMode: (m: ColorMode) => void;
   setLayer: (l: Layer) => void;
   setRegion: (r: string) => void;
+  setCountry: (c: string) => void;
 }
 
 const COMPARE: { id: Sensor; label: string; color: string; help: string }[] = [
@@ -44,6 +46,84 @@ function CoverageBar({ meta, platform }: { meta: Meta; platform: string }) {
   );
 }
 
+function PlaceDropdown({
+  label,
+  value,
+  display,
+  options,
+  totals,
+  allLabel,
+  onPick,
+}: {
+  label: string;
+  value: string;
+  display: string;
+  options: string[];
+  totals: Record<string, number>;
+  allLabel: string;
+  onPick: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: PointerEvent) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="region-dd" ref={box}>
+      <button
+        type="button"
+        className={`region-dd-trigger ${open ? "open" : ""}`}
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        aria-label={label}
+      >
+        <span className="region-dd-label">
+          <span>{display}</span>
+          <span className="num">{fmt(totals[value] ?? 0)}</span>
+        </span>
+        <svg className="region-dd-caret" width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+          <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <div className="region-dd-menu" role="listbox" aria-label={label}>
+          {options.map((r) => (
+            <button
+              key={r}
+              type="button"
+              role="option"
+              aria-selected={value === r}
+              className={value === r ? "on" : ""}
+              onClick={() => {
+                onPick(r);
+                setOpen(false);
+              }}
+            >
+              <span>{r === "All" ? allLabel : r}</span>
+              <span className="num">{fmt(totals[r] ?? 0)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ControlPanel(p: Props) {
   const harm = p.sensor === "harm";
   const compareHelp = COMPARE.find((s) => s.id === p.sensor)?.help;
@@ -53,24 +133,10 @@ export default function ControlPanel(p: Props) {
   const onPoints = p.layer === "points";
   const regions = ["All", ...p.meta.regions];
   const regionLabel = p.region === "All" ? p.meta.region_name : p.region;
-  const [regionOpen, setRegionOpen] = useState(false);
-  const regionBox = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!regionOpen) return;
-    const onDoc = (e: PointerEvent) => {
-      if (!regionBox.current?.contains(e.target as Node)) setRegionOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setRegionOpen(false);
-    };
-    document.addEventListener("pointerdown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [regionOpen]);
+  const countryList = p.region !== "All" ? p.meta.region_countries?.[p.region] ?? [] : [];
+  const showCountry = !!p.meta.region_countries && p.region !== "All" && countryList.length > 0;
+  const countryOptions = ["All", ...countryList];
+  const countryLabel = p.country === "All" ? "All countries in region" : p.country;
 
   return (
     <aside className="panel left glass">
@@ -121,43 +187,31 @@ export default function ControlPanel(p: Props) {
         <h3>
           <span className="step">2</span> Region
         </h3>
-        <div className="region-dd" ref={regionBox}>
-          <button
-            type="button"
-            className={`region-dd-trigger ${regionOpen ? "open" : ""}`}
-            onClick={() => setRegionOpen((o) => !o)}
-            aria-expanded={regionOpen}
-            aria-haspopup="listbox"
-          >
-            <span className="region-dd-label">
-              <span>{regionLabel}</span>
-              <span className="num">{fmt(p.regionTotals[p.region] ?? 0)}</span>
-            </span>
-            <svg className="region-dd-caret" width="14" height="14" viewBox="0 0 16 16" aria-hidden>
-              <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-          {regionOpen && (
-            <div className="region-dd-menu" role="listbox" aria-label="Region">
-              {regions.map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  role="option"
-                  aria-selected={p.region === r}
-                  className={p.region === r ? "on" : ""}
-                  onClick={() => {
-                    p.setRegion(r);
-                    setRegionOpen(false);
-                  }}
-                >
-                  <span>{r === "All" ? p.meta.region_name : r}</span>
-                  <span className="num">{fmt(p.regionTotals[r] ?? 0)}</span>
-                </button>
-              ))}
+        <PlaceDropdown
+          label="Region"
+          value={p.region}
+          display={regionLabel}
+          options={regions}
+          totals={p.regionTotals}
+          allLabel={p.meta.region_name}
+          onPick={p.setRegion}
+        />
+        {showCountry && (
+          <>
+            <div className="sub-head" style={{ marginTop: 10 }}>
+              Country
             </div>
-          )}
-        </div>
+            <PlaceDropdown
+              label="Country"
+              value={p.country}
+              display={countryLabel}
+              options={countryOptions}
+              totals={p.regionTotals}
+              allLabel="All countries in region"
+              onPick={p.setCountry}
+            />
+          </>
+        )}
       </section>
 
       <section>
@@ -204,7 +258,8 @@ export default function ControlPanel(p: Props) {
           {p.meta.reference_platform} as reference; when it is down, MODIS converted with the calibrated factor
           {p.meta.backup_platforms?.length
             ? ` (optional VIIRS backups ${p.meta.backup_platforms.join(" / ")} when configured)`
-            : ""}.
+            : ""}
+          .
           {p.meta.points_dropped ? ` Detections layer: the ${fmt(p.meta.points_dropped)} weakest detections are not drawn.` : ""}
         </p>
       </section>

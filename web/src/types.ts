@@ -48,6 +48,10 @@ export interface Meta {
   viirs_start?: string;
   years: number[];
   regions: string[];
+  /** Countries under UN sub-regions (world overview / coarse only). */
+  countries?: string[];
+  /** Map of super-region → country names for the Country dropdown. */
+  region_countries?: Record<string, string[]>;
   platforms: string[];
   modis_platforms: string[];
   reference_platform: string;
@@ -70,12 +74,16 @@ export interface Meta {
 export interface Cells {
   size_m: number;
   regions: string[];
+  /** Country names aligned with `country` indices (world dual-hierarchy only). */
+  countries?: string[];
   id: string[];
   w: number[];
   s: number[];
   e: number[];
   n: number[];
   region: number[];
+  /** Per-cell country index into `countries`, or -1 (world dual-hierarchy only). */
+  country?: number[];
   frp_max: number[];
   modis_m: number[];
   viirs_m: number[];
@@ -148,7 +156,13 @@ export interface PointSet extends Points {
 export interface GeoJSON {
   type: "FeatureCollection";
   features: {
-    properties: { name: string };
+    properties: {
+      name: string;
+      /** UN sub-region for country features on world datasets. */
+      parent?: string;
+      /** "super" | "country" | "region" */
+      level?: string;
+    };
     geometry: { type: "Polygon" | "MultiPolygon"; coordinates: number[][][] | number[][][][] };
   }[];
 }
