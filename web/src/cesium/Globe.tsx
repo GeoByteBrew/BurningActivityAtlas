@@ -81,23 +81,22 @@ const SENSOR_LABEL: Record<Sensor, string> = {
 };
 
 function basemapProvider(b: Basemap) {
-  // Short credits only — full FIRMS + basemap list lives in the Data attribution popover.
   if (b === "satellite")
     return new UrlTemplateImageryProvider({
       url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
       maximumLevel: 18,
-      credit: new Credit("Esri"),
+      credit: new Credit("Imagery © Esri, Maxar, Earthstar Geographics"),
     });
   if (b === "bluemarble")
     return new UrlTemplateImageryProvider({
       url: "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg",
       maximumLevel: 8,
-      credit: new Credit("NASA GIBS"),
+      credit: new Credit("NASA Blue Marble · GIBS / Worldview"),
     });
   return new UrlTemplateImageryProvider({
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
     maximumLevel: 16,
-    credit: new Credit("Esri"),
+    credit: new Credit("Basemap © Esri, HERE, Garmin, © OpenStreetMap contributors"),
   });
 }
 
