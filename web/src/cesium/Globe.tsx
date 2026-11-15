@@ -25,7 +25,7 @@ import {
   Viewer,
 } from "cesium";
 import { cellRatio, fmt, fmtRatio, inRange } from "../data";
-import { anomalyRgb, divergeRgb, fireRgb, logNorm, robustMax, SENSOR_COLORS } from "../colors";
+import { anomalyRgb, divergeRgb, fireRgb, percentileOf, sortedPositives, SENSOR_COLORS } from "../colors";
 import type { Basemap, ColorMode, Dataset, Layer, PickedPoint, PointSet, Range, Sensor } from "../types";
 import { polyBbox, type Poly } from "../aoi";
 
@@ -399,7 +399,7 @@ export default function Globe(props: Props) {
       if (values[i] !== 0 || (anomaly && medians[i] >= 1)) keep[i] = 1;
       if (values[i] !== 0) absVals.push(Math.abs(values[i]));
     }
-    const max = robustMax(absVals, 0.95);
+    const sorted = sortedPositives(absVals);
     heightsRef.current = heights;
 
     const old = gridRef.current;
@@ -417,17 +417,18 @@ export default function Globe(props: Props) {
     for (let i = 0; i < N; i++) {
       if (!keep[i]) continue;
       const val = values[i];
-      const t = logNorm(Math.abs(val), max);
+      // Equal-frequency colouring: mid activity → mid hue (not everything red).
+      const t = percentileOf(Math.abs(val), sorted);
       heights[i] = cellH;
       const rgb = anomaly
         ? anomalyRgb(cellRatio(val, medians[i]))
         : sensor === "diff"
-          ? divergeRgb(Math.sign(val) * t)
+          ? divergeRgb(Math.sign(val) * (2 * t - 1))
           : sensor === "convdiff"
-          ? divergeRgb(-Math.sign(val) * t)
-          : fireRgb(0.08 + 0.92 * t);
+          ? divergeRgb(-Math.sign(val) * (2 * t - 1))
+          : fireRgb(t);
       // Quiet anomaly cells stay more transparent so active fire stands out.
-      const alpha = anomaly && val === 0 ? 0.45 : 0.88;
+      const alpha = anomaly && val === 0 ? 0.4 : 0.82;
       const pad = (c.e[i] - c.w[i]) * 0.04;
       const padY = (c.n[i] - c.s[i]) * 0.04;
       instances.push(

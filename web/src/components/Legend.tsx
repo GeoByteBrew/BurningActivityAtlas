@@ -68,13 +68,13 @@ export default function Legend({
           </>
         ) : (
           <>
-            <span>1</span>
-            <span>{fmt(Math.round(Math.sqrt(max)))}</span>
-            <span>{fmt(max)}</span>
+            <span>low</span>
+            <span>mid</span>
+            <span>high (~{fmt(max)}+)</span>
           </>
         )}
       </div>
-      <span className="legend-sub">Colour on a log scale (95th percentile)</span>
+      <span className="legend-sub">Colour by rank among active cells (purple → yellow → red)</span>
     </div>
   );
 }
